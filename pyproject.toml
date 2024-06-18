@@ -1,0 +1,55 @@
+[build-system]
+requires = [
+  "setuptools>=61.0.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ensembl-datacheck-py"
+description = "A genomics data checking plugin"
+version = "0.1.0"
+readme = "README.rst"
+requires-python = ">=3.8"
+authors = [
+    { name = "Daniel Poppleton", email = "danielp@ebi.ac.uk" },
+]
+maintainers = [
+    { name = "Daniel Poppleton", email = "danielp@ebi.ac.uk" },
+]
+license = { file = "LICENSE" }
+classifiers = [
+    "Framework :: Pytest",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "pytest>=8.2.2",
+]
+
+[project.urls]
+Repository = "https://github.com/Ensembl/ensembl-datacheck-py"
+
+[project.entry-points."pytest11"]
+ensembl_datacheck_py = "ensembl.plugin"
+
+[project.entry-points."console_scripts"]
+ensembl-datacheck = "ensembl.runner:main"
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+python_files = ["fasta.py"]
+filterwarnings = [
+    "default"
+]
