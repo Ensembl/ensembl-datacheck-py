@@ -41,9 +41,9 @@ def determine_fasta_type(file_path):
     return 'unknown'
 def allowed_character_check(file_path, allowed_chars):
     """Check for allowed characters in a file."""
+    count = 0
     allowed_chars = set(allowed_chars.upper())
     with open(file_path, 'r') as file:
-        count = 0
         for line in file:
             count += 1
             if line.startswith(">"):

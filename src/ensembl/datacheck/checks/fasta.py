@@ -43,7 +43,7 @@ def check_line_length(file_path, max_length=80):
 def check_allowed_character(file_path):
     """Check that file contains only allowed characters"""
     line = allowed_character_check(file_path, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
-    assert not isinstance(line, int), f"Line {line} does not match either Nucleotide or Protein configurations."
+    assert line is True or line is None, f"Line {line} does not match either Nucleotide or Protein configurations."
 
 def check_ends_with_newline(file_path):
     """Check that file ends properly"""
