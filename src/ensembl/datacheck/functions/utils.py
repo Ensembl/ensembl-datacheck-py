@@ -15,10 +15,33 @@
 
 
 class EnsemblDatacheckWarning(UserWarning):
+    """
+    Custom warning class for Ensembl data checks.
+
+    Attributes:
+        message (str): The warning message.
+        file_name (str): The name of the file where the warning originated.
+        function_name (str): The name of the function where the warning originated.
+    """
+
     def __init__(self, message, file_name, function_name):
+        """
+        Initializes the EnsemblDatacheckWarning with the given message, file name, and function name.
+
+        Args:
+            message (str): The warning message.
+            file_name (str): The name of the file where the warning originated.
+            function_name (str): The name of the function where the warning originated.
+        """
         self.message = message
         self.file_name = file_name
         self.function_name = function_name
 
     def __str__(self):
+        """
+        Returns a formatted string representation of the warning.
+
+        Returns:
+            str: Formatted warning message.
+        """
         return f"Warning::{self.file_name}::{self.function_name}: {self.message}"
