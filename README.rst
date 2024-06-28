@@ -85,13 +85,10 @@ To run a program you can call it like::
 
 To Do
 ------------
-- Make the plugin independent (Not overwriting default pytest configurations unless called)
-- Checksum storage in a database with test results for files
 - More tests!
 - Confluence Page
 - Publish it
 - Introduce tests for tests
-- Improve standard output for tests
 
 
 Contributing
