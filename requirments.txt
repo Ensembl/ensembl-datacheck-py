@@ -1,4 +1,0 @@
-ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git@updates/version
-xxhash
-sqlalchemy<=2.0
-pickle
