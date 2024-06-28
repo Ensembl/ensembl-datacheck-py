@@ -31,6 +31,10 @@ classifiers = [
 ]
 dependencies = [
     "pytest>=8.2.2",
+    "xxhash",
+    "pickle",
+    "ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git@updates/version",
+    "sqlalchemy<=2.0"
 ]
 
 [project.urls]
@@ -47,8 +51,3 @@ python_functions = ["check_*"]
 filterwarnings = [
     "default::ensembl.datacheck.plugin.EnsemblDatacheckWarning"
 ]
-
-[tool.poetry.dependencies]
-sphinx = "^4.0.0"
-sphinx-autodoc-typehints = "^1.12.0"
-sphinxcontrib-napoleon = "^0.7"
