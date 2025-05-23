@@ -42,8 +42,28 @@ def check_license_header(filepath):
 
 def check_module_docstring(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
-        content = f.read()
-        return bool(re.match(r'^\s*"""[\s\S]+?"""\s*', content))
+        lines = f.readlines()
+
+    # Skip initial comments and blank lines
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped.startswith("#") or stripped == "":
+            i += 1
+        else:
+            break
+
+    # Expect a triple-quoted docstring next
+    if i < len(lines) and lines[i].strip().startswith('"""'):
+        if lines[i].strip().count('"""') == 2:
+            return True  # Single-line docstring
+        i += 1
+        while i < len(lines):
+            if '"""' in lines[i]:
+                return True
+            i += 1
+    return False
+
 
 def check_function_docstrings(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
