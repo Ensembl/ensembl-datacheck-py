@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import class_mapper
 
-def check_database_connection(db_session):
+def database_connection_check(db_session):
     """
     Check if the database connection is established.
 
@@ -28,26 +28,18 @@ def check_database_connection(db_session):
     """
     return db_session is not None
 
-def check_tables_not_empty(db_session):
+def tables_not_empty_check(db_session):
     """
     Check that all tables in the database are not empty.
-
-    Args:
-        db_session (sqlalchemy.orm.Session): The database session.
-
-    Returns:
-        tuple: A tuple containing a boolean indicating the result and a message.
-               The boolean is True if all tables are not empty, False otherwise.
-               The message contains the name of the empty table if any.
     """
     inspector = inspect(db_session.get_bind())
     for table_name in inspector.get_table_names():
-        count = db_session.execute(f"SELECT COUNT(*) FROM {table_name}").scalar()
+        count = db_session.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
         if count == 0:
             return False, f"Table {table_name} is empty"
     return True, ""
 
-def check_foreign_key_link(db_session, SourceModel, TargetModel, source_key, target_key):
+def foreign_key_link_check(db_session, SourceModel, TargetModel, source_key, target_key):
     """
     Check that all entries in SourceModel are linked to at least one entry in TargetModel.
 
@@ -69,7 +61,7 @@ def check_foreign_key_link(db_session, SourceModel, TargetModel, source_key, tar
             return False, f"Entry {getattr(entry, source_key)} in {SourceModel.__name__} is not linked to any entry in {TargetModel.__name__}"
     return True, ""
 
-def check_attribute_presence(db_session, Model, attribute):
+def attribute_presence_check(db_session, Model, attribute):
     """
     Check that each entry in Model has the specified attribute.
 
