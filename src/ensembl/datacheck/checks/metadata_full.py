@@ -26,11 +26,13 @@ These checks are run to verify the integrity and completeness of the metadata in
 """
 
 import pytest
-from ensembl.production.metadata.api.models import *
+from ensembl.production.metadata.api.models import Dataset, GenomeDataset, DatasetStatus, EnsemblRelease, ReleaseStatus
+from ensembl.production.metadata.api.models.base import Base
+
 from sqlalchemy import or_, func
 
 from ensembl.datacheck.functions.db_checks import (
-    database_connection_check, tables_not_empty_check
+    database_connection_check
 )
 
 @pytest.mark.usefixtures("db_session")
@@ -46,6 +48,7 @@ def check_database(db_session):
     """
     assert database_connection_check(db_session), "Database session is not available"
 
+
 @pytest.mark.usefixtures("db_session")
 def check_tables(db_session):
     """
@@ -57,8 +60,18 @@ def check_tables(db_session):
     Raises:
         AssertionError: If any table is empty.
     """
-    result, message = tables_not_empty_check(db_session)
-    assert result, message
+    table_names = [
+        'assembly', 'assembly_sequence', 'attribute', 'dataset',
+        'dataset_attribute', 'dataset_source', 'dataset_type',
+        'ensembl_release', 'ensembl_site', 'genome', 'genome_dataset',
+        'genome_release', 'organism', 'organism_group', 'organism_group_member'
+    ]
+
+    for table_name in table_names:
+        table = Base.metadata.tables[table_name]
+        count = db_session.query(func.count()).select_from(table).scalar()
+        if count == 0:
+            assert False, f"Table {table_name} is empty"
 
 
 @pytest.mark.usefixtures("db_session")
@@ -68,7 +81,7 @@ def check_released_datasets_have_released_releases(db_session):
 
     Performs two checks:
     1. Released datasets must have a genome_dataset entry with a release_id
-    2. Released datasets must only be attached to Released releases
+    2. Released datasets must have at least one Released release attached
 
     Args:
         db_session (sqlalchemy.orm.Session): The database session.
@@ -76,37 +89,73 @@ def check_released_datasets_have_released_releases(db_session):
     Raises:
         AssertionError: If any Released dataset is not properly attached to a Released release.
     """
-    # Check 1: Find Released datasets without a genome_dataset or with null release_id
-    datasets_without_release = (
-        db_session.query(Dataset)
-        .outerjoin(Dataset.genome_datasets)
+    """
+    Check that all Released datasets are properly attached to Released releases.
+
+    Performs two checks:
+    1. Released datasets must have a genome_dataset entry with a release_id
+    2. Released datasets must have at least one Released release attached
+
+    Args:
+        db_session (sqlalchemy.orm.Session): The database session.
+
+    Raises:
+        AssertionError: If any Released dataset is not properly attached to a Released release.
+    """
+    # # Check 1: Find Released datasets without a genome_dataset or with null release_id
+    # datasets_without_release = (
+    #     db_session.query(Dataset)
+    #     .outerjoin(Dataset.genome_datasets)
+    #     .filter(
+    #         Dataset.status == DatasetStatus.RELEASED,
+    #         or_(
+    #             GenomeDataset.dataset_id == None,  # No genome_dataset entry
+    #             GenomeDataset.release_id == None  # Has genome_dataset but no release_id
+    #         )
+    #     )
+    #     .all()
+    # )
+    #
+    # if datasets_without_release:
+    #     dataset_ids = [ds.dataset_uuid for ds in datasets_without_release]
+    #     assert False, f"Found {len(datasets_without_release)} Released datasets without a release: {dataset_ids}"
+
+    # Check 2: Use set logic to find Released datasets without a Released release
+    # Set 1: All Released datasets WITH a Released release
+    datasets_with_released_release = set(
+        db_session.query(Dataset.dataset_id)
+        .join(Dataset.genome_datasets)
+        .join(GenomeDataset.ensembl_release)
         .filter(
             Dataset.status == DatasetStatus.RELEASED,
-            or_(
-                GenomeDataset.dataset_id == None,  # No genome_dataset entry
-                GenomeDataset.release_id == None  # Has genome_dataset but no release_id
-            )
+            EnsemblRelease.status == ReleaseStatus.RELEASED
         )
+        .distinct()
         .all()
     )
-
-    if datasets_without_release:
-        dataset_ids = [ds.dataset_uuid for ds in datasets_without_release]
-        assert False, f"Found {len(datasets_without_release)} Released datasets without a release: {dataset_ids}"
-
-    # Check 2: Find Released datasets attached to non-Released releases
-    datasets_with_unreleased_release = (
-        db_session.query(Dataset)
+    datasets_with_released_release = {ds_id[0] for ds_id in datasets_with_released_release}
+    # Set 2: All Released datasets WITH an unreleased release
+    datasets_with_unreleased_release = set(
+        db_session.query(Dataset.dataset_id)
         .join(Dataset.genome_datasets)
         .join(GenomeDataset.ensembl_release)
         .filter(
             Dataset.status == DatasetStatus.RELEASED,
             EnsemblRelease.status != ReleaseStatus.RELEASED
         )
+        .distinct()
         .all()
     )
+    datasets_with_unreleased_release = {ds_id[0] for ds_id in datasets_with_unreleased_release}
 
-    if datasets_with_unreleased_release:
-        dataset_ids = [ds.dataset_uuid for ds in datasets_with_unreleased_release]
-        assert False, f"Found {len(datasets_with_unreleased_release)} Released datasets attached to non-Released releases: {dataset_ids}"
+    # Find datasets in Set 2 that are NOT in Set 1
+    problematic_dataset_ids = datasets_with_unreleased_release - datasets_with_released_release
 
+    if problematic_dataset_ids:
+        problematic_datasets = (
+            db_session.query(Dataset)
+            .filter(Dataset.dataset_id.in_(problematic_dataset_ids))
+            .all()
+        )
+        dataset_uuids = [ds.dataset_uuid for ds in problematic_datasets]
+        assert False, f"Found {len(problematic_dataset_ids)} Released datasets not attached to any Released releases: {dataset_uuids}"

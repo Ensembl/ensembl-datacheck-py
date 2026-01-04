@@ -48,5 +48,8 @@ python_files = ["fasta.py"]
 python_classes = ["*"]
 python_functions = ["check_*"]
 filterwarnings = [
-    "default::ensembl.datacheck.plugin.EnsemblDatacheckWarning"
+    "default::ensembl.datacheck.plugin.EnsemblDatacheckWarning",
+    "ignore::pytest.PytestCollectionWarning",
+    "ignore::sqlalchemy.exc.MovedIn20Warning"
 ]
+
