@@ -12,9 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import warnings
 
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import class_mapper
+
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
+
 
 def database_connection_check(db_session):
     """
@@ -39,27 +43,35 @@ def tables_not_empty_check(db_session):
             return False, f"Table {table_name} is empty"
     return True, ""
 
-def foreign_key_link_check(db_session, SourceModel, TargetModel, source_key, target_key):
+
+
+def find_orphans(db_session, source_model, join_target, filter_column, uuid_field, entity_name, warn=False):
     """
-    Check that all entries in SourceModel are linked to at least one entry in TargetModel.
+    Generic function to check for orphaned records.
 
     Args:
-        db_session (sqlalchemy.orm.Session): The database session.
-        SourceModel (sqlalchemy.ext.declarative.api.Base): The source model class.
-        TargetModel (sqlalchemy.ext.declarative.api.Base): The target model class.
-        source_key (str): The attribute name in the source model to be checked.
-        target_key (str): The attribute name in the target model to be checked.
-
-    Returns:
-        tuple: A tuple containing a boolean indicating the result and a message.
-               The boolean is True if all entries are linked, False otherwise.
-               The message contains the details of the unlinked entry if any.
+        db_session: SQLAlchemy session
+        source_model: The model to query (e.g., Dataset, Organism)
+        join_target: The relationship or model to join (e.g., Dataset.genome_datasets, Genome)
+        filter_column: The column to check for None (e.g., GenomeDataset.dataset_id)
+        uuid_field: The UUID field name on source_model (e.g., 'dataset_uuid')
+        entity_name: Human-readable name for error messages
+        warn: Return warnings rather than exceptions
     """
-    source_entries = db_session.query(SourceModel).all()
-    for entry in source_entries:
-        if db_session.query(TargetModel).filter_by(**{target_key: getattr(entry, source_key)}).count() == 0:
-            return False, f"Entry {getattr(entry, source_key)} in {SourceModel.__name__} is not linked to any entry in {TargetModel.__name__}"
-    return True, ""
+    orphans = (
+        db_session.query(source_model)
+        .outerjoin(join_target)
+        .filter(filter_column == None)
+        .all()
+    )
+
+    if orphans:
+        ids = [getattr(obj, uuid_field) for obj in orphans]
+        if warn:
+            #self, message, file_name, function_name)
+            warnings.warn(EnsemblDatacheckWarning(f"Found {len(orphans)} orphaned {entity_name}: {ids}","ensembl_genome_metadata", "check_orphan"))
+        else:
+            assert False, f"Found {len(orphans)} orphaned {entity_name}: {ids}"
 
 def attribute_presence_check(db_session, Model, attribute):
     """
@@ -80,3 +92,5 @@ def attribute_presence_check(db_session, Model, attribute):
         if not getattr(entry, attribute):
             return False, f"Entry {getattr(entry, class_mapper(Model).primary_key[0].name)} in {Model.__name__} does not have a valid {attribute}"
     return True, ""
+
+
