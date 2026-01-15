@@ -13,16 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pathlib
-import pytest
 import os
+import pathlib
 import warnings
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
-from .custom_summary_plugin import CustomSummaryPlugin
-from .cache_manager import CacheManager
-from datetime import datetime
+from ensembl.datacheck.plugin import CacheManager, CustomSummaryPlugin
+
 
 def pytest_addoption(parser):
     """
@@ -33,11 +34,32 @@ def pytest_addoption(parser):
     """
     parser.addoption("--file", default=None, help="Paths to the files to be tested")
     parser.addoption("--test", required=True, help="Name of the test to run")
-    parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
-    parser.addoption("--native-output", action="store_true", default=False, help="Use native warnings display")
-    parser.addoption("--no-cache-results", action="store_true", default=False, help="Disable caching of results")
-    parser.addoption("--load-test-results", action="store_true", default=False, help="Load previous test results if available")
+    parser.addoption(
+        "--no-warnings",
+        action="store_true",
+        default=False,
+        help="Disable warnings display",
+    )
+    parser.addoption(
+        "--native-output",
+        action="store_true",
+        default=False,
+        help="Use native warnings display",
+    )
+    parser.addoption(
+        "--no-cache-results",
+        action="store_true",
+        default=False,
+        help="Disable caching of results",
+    )
+    parser.addoption(
+        "--load-test-results",
+        action="store_true",
+        default=False,
+        help="Load previous test results if available",
+    )
     parser.addoption("--database", help="Database URL for SQLAlchemy")
+
 
 @pytest.fixture
 def file_path(request):
@@ -54,6 +76,7 @@ def file_path(request):
     if file_path:
         file_path = pathlib.Path(file_path).expanduser()
     return file_path
+
 
 @pytest.fixture(scope="session")
 def db_session(request):
@@ -76,6 +99,7 @@ def db_session(request):
     else:
         yield None
 
+
 def pytest_cmdline_main(config):
     """
     Ensures only the specified test file is run.
@@ -94,6 +118,7 @@ def pytest_cmdline_main(config):
         config.args[:] = [str(test_file)]  # Ensure only the specified test file is run
     return None
 
+
 def pytest_configure(config):
     """
     Configures pytest with custom warning formats and caching logic.
@@ -101,7 +126,10 @@ def pytest_configure(config):
     Args:
         config (pytest.Config): The pytest configuration object.
     """
-    def custom_warning_format(message, category, filename, lineno, file=None, line=None):
+
+    def custom_warning_format(
+        message, category, filename, lineno, file=None, line=None
+    ):
         """
         Custom warning format for EnsemblDatacheckWarning.
 
@@ -115,7 +143,7 @@ def pytest_configure(config):
             str: Formatted warning message.
         """
         if issubclass(category, EnsemblDatacheckWarning):
-            return str(message) + '\n'
+            return str(message) + "\n"
         else:
             return f"{filename}:{lineno}: {category.__name__}: {message}\n"
 
@@ -124,7 +152,9 @@ def pytest_configure(config):
 
     # Handle warning options
     if not config.getoption("--native-output"):
-        config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
+        config.pluginmanager.register(
+            CustomSummaryPlugin(config), "custom_summary_plugin"
+        )
 
     # Handle caching logic
     file_path = config.getoption("--file")
@@ -138,6 +168,7 @@ def pytest_configure(config):
 
     # Prevent pytest from automatically running tests here
     config.option.runpytest = False
+
 
 def pytest_pycollect_makeitem(collector, name, obj):
     """
@@ -154,6 +185,7 @@ def pytest_pycollect_makeitem(collector, name, obj):
     if name.startswith("check_") and callable(obj):
         return pytest.Function.from_parent(collector, name=name)
 
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_report_header(config):
     """
@@ -166,6 +198,7 @@ def pytest_report_header(config):
         list: List of header strings.
     """
     return ["ensembl-datacheck"]
+
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
@@ -180,6 +213,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
     cache_manager = CacheManager(config)
     cache_manager.handle_cache_post_run(terminalreporter)
+
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session):

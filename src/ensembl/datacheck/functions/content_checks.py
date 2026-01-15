@@ -15,6 +15,7 @@
 
 import os
 
+
 def line_length_check(file_path, max_length=80):
     """
     Check for lines longer than the specified maximum length in a file.
@@ -27,11 +28,12 @@ def line_length_check(file_path, max_length=80):
         list: A list of warnings for lines longer than the specified length.
     """
     warnings = []
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         for i, line in enumerate(file, 1):
             if len(line.rstrip()) > max_length:
                 warnings.append(f"Line {i} is longer than {max_length} characters.")
     return warnings
+
 
 def determine_fasta_type(file_path):
     """
@@ -48,16 +50,23 @@ def determine_fasta_type(file_path):
     nucleotide_chars = set("ACGTUMRSWYKVHDBN-")
     protein_chars = set("ABCDEFGHIKLMNPQRSTVWXYZ*-")
 
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         for line in file:
             if line.startswith(">"):
                 continue
             for char in line.strip():
-                if char.upper() in protein_chars and char.upper() not in nucleotide_chars:
-                    return 'protein'
-                if char.upper() in nucleotide_chars and char.upper() not in protein_chars:
-                    return 'nucleotide'
-    return 'unknown'
+                if (
+                    char.upper() in protein_chars
+                    and char.upper() not in nucleotide_chars
+                ):
+                    return "protein"
+                if (
+                    char.upper() in nucleotide_chars
+                    and char.upper() not in protein_chars
+                ):
+                    return "nucleotide"
+    return "unknown"
+
 
 def allowed_character_check(file_path, allowed_chars):
     """
@@ -72,7 +81,7 @@ def allowed_character_check(file_path, allowed_chars):
     """
     count = 0
     allowed_chars = set(allowed_chars.upper())
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         for line in file:
             count += 1
             if line.startswith(">"):
@@ -81,6 +90,7 @@ def allowed_character_check(file_path, allowed_chars):
                 if char.upper() not in allowed_chars:
                     return count
     return True
+
 
 def ends_with_newline(file_path):
     """
@@ -92,6 +102,6 @@ def ends_with_newline(file_path):
     Returns:
         bool: True if the file ends with a newline character, False otherwise.
     """
-    with open(file_path, 'rb') as file:
+    with open(file_path, "rb") as file:
         file.seek(-1, os.SEEK_END)
-        return file.read(1) == b'\n'
+        return file.read(1) == b"\n"

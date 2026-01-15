@@ -28,9 +28,14 @@ These checks are run to ensure the proper formatting and validity of FASTA files
 """
 
 import warnings
-from ensembl.datacheck.functions.content_checks import line_length_check, allowed_character_check, ends_with_newline
+from ensembl.datacheck.functions.content_checks import (
+    line_length_check,
+    allowed_character_check,
+    ends_with_newline,
+)
 from ensembl.datacheck.functions.file_checks import is_text_file
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
+
 
 def check_if_text_file(file_path):
     """
@@ -44,6 +49,7 @@ def check_if_text_file(file_path):
     """
     assert is_text_file(file_path), "The file is not identified as a text file."
 
+
 def check_line_length(file_path, max_length=80):
     """
     Check for lines longer than the specified maximum length and issue warnings.
@@ -55,7 +61,10 @@ def check_line_length(file_path, max_length=80):
     line_warnings = line_length_check(file_path, max_length)
     if line_warnings:
         for warning in line_warnings:
-            warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_line_length"))
+            warnings.warn(
+                EnsemblDatacheckWarning(warning, "fasta", "check_line_length")
+            )
+
 
 def check_allowed_character(file_path):
     """
@@ -68,7 +77,10 @@ def check_allowed_character(file_path):
         AssertionError: If any line contains characters not allowed in nucleotide or protein sequences.
     """
     line = allowed_character_check(file_path, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
-    assert line is True or line is None, f"Line {line} does not match either nucleotide or protein configurations."
+    assert (
+        line is True or line is None
+    ), f"Line {line} does not match either nucleotide or protein configurations."
+
 
 def check_ends_with_newline(file_path):
     """
@@ -79,4 +91,6 @@ def check_ends_with_newline(file_path):
     """
     if not ends_with_newline(file_path):
         warning = f"The file {file_path} does not end in a newline character."
-        warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_ends_with_newline"))
+        warnings.warn(
+            EnsemblDatacheckWarning(warning, "fasta", "check_ends_with_newline")
+        )

@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+__all__ = ["CustomSummaryPlugin"]
+
 import warnings
+
+import pytest
+
 
 class CustomSummaryPlugin:
     """
-    A pytest plugin to provide custom summaries for test results, including warnings, failures, and passed tests.
+    A pytest plugin to provide custom summaries for test results, including warnings, failures, and
+    passed tests.
 
     Attributes:
         warnings (list): A list to store warning messages.
@@ -56,8 +61,9 @@ class CustomSummaryPlugin:
         """
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            outcome = yield
+            yield
             self.warnings.extend(w)
+
     def pytest_runtest_logreport(self, report):
         """
         Hook to log the results of each test.
@@ -114,12 +120,12 @@ class CustomSummaryPlugin:
         self._print_passed_summary(terminalreporter)
         self._print_failures_summary(terminalreporter)
 
-        if 'failed' in terminalreporter.stats:
-            for report in terminalreporter.stats['failed']:
+        if "failed" in terminalreporter.stats:
+            for report in terminalreporter.stats["failed"]:
                 test_name = report.nodeid.split("::")[1]
                 test_name = test_name.split("-")[0]
                 report.nodeid = test_name
-                report.longrepr = ''
+                report.longrepr = ""
 
     def _print_warnings_summary(self, terminalreporter):
         """
@@ -136,9 +142,13 @@ class CustomSummaryPlugin:
                 terminalreporter.write_line(f"{dark_yellow}{warning.message}{reset}")
             total_warnings = len(self.warnings)
             if total_warnings > 1:
-                terminalreporter.write_sep("=", f"{dark_yellow}There are {total_warnings} warnings{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_yellow}There are {total_warnings} warnings{reset}"
+                )
             else:
-                terminalreporter.write_sep("=", f"{dark_yellow}There is {total_warnings} warning{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_yellow}There is {total_warnings} warning{reset}"
+                )
 
     def _print_failures_summary(self, terminalreporter):
         """
@@ -155,9 +165,13 @@ class CustomSummaryPlugin:
                 terminalreporter.write_line(f"{dark_red}{failure}{reset}")
             total_failures = len(self.failures)
             if total_failures > 1:
-                terminalreporter.write_sep("=", f"{dark_red}There are {total_failures} failures{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_red}There are {total_failures} failures{reset}"
+                )
             else:
-                terminalreporter.write_sep("=", f"{dark_red}There is {total_failures} failure{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_red}There is {total_failures} failure{reset}"
+                )
 
     def _print_passed_summary(self, terminalreporter):
         """
@@ -175,9 +189,13 @@ class CustomSummaryPlugin:
                 terminalreporter.write_line(f"{dark_green}{formatted_passed}{reset}")
             total_passed = len(self.passed_tests)
             if total_passed > 1:
-                terminalreporter.write_sep("=", f"{dark_green}There are {total_passed} passed tests{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_green}There are {total_passed} passed tests{reset}"
+                )
             else:
-                terminalreporter.write_sep("=", f"{dark_green}There is {total_passed} passed test{reset}")
+                terminalreporter.write_sep(
+                    "=", f"{dark_green}There is {total_passed} passed test{reset}"
+                )
 
     def _format_passed_test(self, passed_test):
         """
@@ -201,7 +219,7 @@ class CustomSummaryPlugin:
         Args:
             file_path (str): Path to the file where the summary should be written.
         """
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             if not self.no_warnings:
                 self._write_warnings_summary(f)
             self._write_failures_summary(f)
