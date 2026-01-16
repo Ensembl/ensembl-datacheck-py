@@ -58,7 +58,6 @@ class CustomSummaryPlugin:
             warnings.simplefilter("always")
             outcome = yield
             self.warnings.extend(w)
-
     def pytest_runtest_logreport(self, report):
         """
         Hook to log the results of each test.

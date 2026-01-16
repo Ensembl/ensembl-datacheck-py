@@ -182,5 +182,5 @@ class CacheManager:
         cache_file = self.cache_dir / "cache.pkl"
         if not terminalreporter.stats.get('failed', {}):
             if cache_file.exists():
-                print(f"All tests passed. Deleting cache file: {cache_file}")
+                print(f"All tests passed. Cache data at: {cache_file}")
                 cache_file.unlink()
