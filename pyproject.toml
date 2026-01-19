@@ -44,13 +44,14 @@ Repository = "https://github.com/Ensembl/ensembl-datacheck-py"
 ensembl-datacheck = "ensembl.datacheck.runner:main"
 
 [tool.pytest.ini_options]
+addopts = [
+    "-ra",  # Report all failed tests, even the advisory ones (xfail)
+    "--import-mode=importlib",
+    "--tb=no",  # Disable traceback
+    "--lf",  # Run only the last failed tests
+]
 testpaths = ["src/ensembl/datacheck/checks/"]
 python_files = ["fasta.py"]
 python_classes = ["*"]
 python_functions = ["check_*"]
-filterwarnings = [
-    "default::ensembl.datacheck.plugin.EnsemblDatacheckWarning",
-    "ignore::pytest.PytestCollectionWarning",
-    "ignore::sqlalchemy.exc.MovedIn20Warning"
-]
-
+cache_dir = ".datachecks_cache"

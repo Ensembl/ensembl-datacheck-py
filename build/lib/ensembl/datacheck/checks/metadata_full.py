@@ -27,11 +27,12 @@ These checks are run to verify the integrity and completeness of the metadata in
 
 import pytest
 from ensembl.production.metadata.api.models import *
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 
 from ensembl.datacheck.functions.db_checks import (
     database_connection_check, tables_not_empty_check
 )
+
 
 @pytest.mark.usefixtures("db_session")
 def check_database(db_session):
@@ -45,6 +46,7 @@ def check_database(db_session):
         AssertionError: If the database session is not available.
     """
     assert database_connection_check(db_session), "Database session is not available"
+
 
 @pytest.mark.usefixtures("db_session")
 def check_tables(db_session):
@@ -90,9 +92,8 @@ def test_released_datasets_have_released_releases(db_session):
         .all()
     )
 
-    if datasets_without_release:
-        dataset_ids = [ds.dataset_uuid for ds in datasets_without_release]
-        assert False, f"Found {len(datasets_without_release)} Released datasets without a release: {dataset_ids}"
+    dataset_ids = [ds.dataset_uuid for ds in datasets_without_release]
+    assert dataset_ids, f"Found {len(dataset_ids)} Released datasets without a release: {dataset_ids}"
 
     # Check 2: Find Released datasets attached to non-Released releases
     datasets_with_unreleased_release = (
@@ -106,7 +107,6 @@ def test_released_datasets_have_released_releases(db_session):
         .all()
     )
 
-    if datasets_with_unreleased_release:
-        dataset_ids = [ds.dataset_uuid for ds in datasets_with_unreleased_release]
-        assert False, f"Found {len(datasets_with_unreleased_release)} Released datasets attached to non-Released releases: {dataset_ids}"
+    dataset_ids = [ds.dataset_uuid for ds in datasets_with_unreleased_release]
+    assert dataset_ids, f"Found {len(dataset_ids)} Released datasets attached to non-Released releases: {dataset_ids}"
 
