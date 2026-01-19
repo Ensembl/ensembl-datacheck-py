@@ -21,16 +21,22 @@ This module checks for the validity of a FASTA file. See: https://zhanggroup.org
 Checks performed:
 1. File is a text file (Error): Ensures the file is identified as a text file.
 2. Line length check (Warning): Ensures all lines are under 80 characters.
-3. Allowed characters check (Error): Ensures the file contains only allowed characters for nucleotide or protein sequences.
+3. Allowed characters check (Error): Ensures the file contains only allowed characters for
+    nucleotide or protein sequences.
 4. File ends with newline (Warning): Ensures the file ends with a newline character.
 
 These checks are run to ensure the proper formatting and validity of FASTA files.
 """
 
-import warnings
-from ensembl.datacheck.functions.content_checks import line_length_check, allowed_character_check, ends_with_newline
+import pytest
+
+from ensembl.datacheck.functions.content_checks import (
+    line_length_check,
+    allowed_character_check,
+    ends_with_newline,
+)
 from ensembl.datacheck.functions.file_checks import is_text_file
-from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
+
 
 def check_if_text_file(file_path):
     """
@@ -44,6 +50,7 @@ def check_if_text_file(file_path):
     """
     assert is_text_file(file_path), "The file is not identified as a text file."
 
+
 def check_line_length(file_path, max_length=80):
     """
     Check for lines longer than the specified maximum length and issue warnings.
@@ -52,10 +59,13 @@ def check_line_length(file_path, max_length=80):
         file_path (str): The path to the file.
         max_length (int): The maximum allowed line length. Defaults to 80.
     """
-    line_warnings = line_length_check(file_path, max_length)
-    if line_warnings:
-        for warning in line_warnings:
-            warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_line_length"))
+    incorrect_lines = line_length_check(file_path, max_length)
+    if incorrect_lines:
+        pytest.xfail((
+            f"Line{'s' if len(incorrect_lines) > 1 else ''} {', '.join(map(str, incorrect_lines))} "
+            f"{'is' if len(incorrect_lines) == 1 else 'are'} longer than {max_length} characters."
+        ))
+
 
 def check_allowed_character(file_path):
     """
@@ -67,8 +77,12 @@ def check_allowed_character(file_path):
     Raises:
         AssertionError: If any line contains characters not allowed in nucleotide or protein sequences.
     """
-    line = allowed_character_check(file_path, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
-    assert line is True or line is None, f"Line {line} does not match either nucleotide or protein configurations."
+    incorrect_lines = allowed_character_check(file_path, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
+    assert not incorrect_lines, (
+        f"Line{'s' if len(incorrect_lines) > 1 else ''} {', '.join(map(str, incorrect_lines))} "
+        f"do{'es' if len(incorrect_lines) == 1 else ''} not match nucleotide or protein configuration."
+    )
+
 
 def check_ends_with_newline(file_path):
     """
@@ -78,5 +92,4 @@ def check_ends_with_newline(file_path):
         file_path (str): The path to the file.
     """
     if not ends_with_newline(file_path):
-        warning = f"The file {file_path} does not end in a newline character."
-        warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_ends_with_newline"))
+        pytest.xfail(f"The file {file_path} does not end in a newline character.")

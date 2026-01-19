@@ -15,6 +15,7 @@
 
 import os
 
+
 def line_length_check(file_path, max_length=80):
     """
     Check for lines longer than the specified maximum length in a file.
@@ -24,14 +25,13 @@ def line_length_check(file_path, max_length=80):
         max_length (int): The maximum allowed line length. Defaults to 80.
 
     Returns:
-        list: A list of warnings for lines longer than the specified length.
+        list: A list with the lines longer than the specified length.
     """
-    warnings = []
-    with open(file_path, 'r') as file:
-        for i, line in enumerate(file, 1):
-            if len(line.rstrip()) > max_length:
-                warnings.append(f"Line {i} is longer than {max_length} characters.")
-    return warnings
+    incorrect_lines = []
+    with open(file_path, "r") as file:
+        incorrect_lines = [i for i, line in enumerate(file, 1) if len(line.rstrip()) > max_length]
+    return incorrect_lines
+
 
 def determine_fasta_type(file_path):
     """
@@ -48,16 +48,20 @@ def determine_fasta_type(file_path):
     nucleotide_chars = set("ACGTUMRSWYKVHDBN-")
     protein_chars = set("ABCDEFGHIKLMNPQRSTVWXYZ*-")
 
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         for line in file:
             if line.startswith(">"):
                 continue
-            for char in line.strip():
-                if char.upper() in protein_chars and char.upper() not in nucleotide_chars:
-                    return 'protein'
-                if char.upper() in nucleotide_chars and char.upper() not in protein_chars:
-                    return 'nucleotide'
-    return 'unknown'
+            # Check if the characters in the line are a subset of nucleotide or protein, but not
+            # both. If unsure, check next line until one makes it clear.
+            line_chars = set(map(str.upper, line.strip()))
+            if line_chars.issubset(nucleotide_chars):
+                if not line_chars.issubset(protein_chars):
+                    return "nucleotide"
+            elif line_chars.issubset(protein_chars):
+                return "protein"
+    return "unknown"
+
 
 def allowed_character_check(file_path, allowed_chars):
     """
@@ -68,19 +72,19 @@ def allowed_character_check(file_path, allowed_chars):
         allowed_chars (str): A string of allowed characters.
 
     Returns:
-        int or bool: The line number of the first disallowed character, or True if all characters are allowed.
+        list: A list with the lines containing disallowed character.
     """
-    count = 0
     allowed_chars = set(allowed_chars.upper())
-    with open(file_path, 'r') as file:
-        for line in file:
-            count += 1
+    incorrect_lines = []
+    with open(file_path, "r") as file:
+        for i, line in enumerate(file, 1):
             if line.startswith(">"):
                 continue
-            for char in line.strip():
-                if char.upper() not in allowed_chars:
-                    return count
-    return True
+            line_chars = set(map(str.upper, line.strip()))
+            if not line_chars.issubset(allowed_chars):
+                incorrect_lines.append(i)
+    return incorrect_lines
+
 
 def ends_with_newline(file_path):
     """
@@ -92,6 +96,6 @@ def ends_with_newline(file_path):
     Returns:
         bool: True if the file ends with a newline character, False otherwise.
     """
-    with open(file_path, 'rb') as file:
+    with open(file_path, "rb") as file:
         file.seek(-1, os.SEEK_END)
-        return file.read(1) == b'\n'
+        return file.read(1) == b"\n"

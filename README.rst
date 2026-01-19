@@ -14,26 +14,21 @@ ensembl-datacheck-py
     :target: https://github.com/Ensembl/ensembl-datacheck-py/actions/workflows/main.yml
     :alt: See Build Status on GitHub Actions
 
-A genomics data checking plugin
+A genomics data checking pytest plugin
 
 ----
 
 
-Features
---------
-
-* TODO
-
-
-Creating a new plugin
+Creating a new datacheck
 ------------
 
-Define the tests in a file within the directory tests (ex tests/fasta.py). Use comment strings. ex::
+Define the tests in a file within the directory tests (e.g. `tests/fasta.py`). Use comment strings, for
+instance::
 
     """
     fasta.py
 
-    This tests for proper formatting of a fasta file. See: https://zhanggroup.org/FASTA/
+    This tests for proper formatting of a FASTA file. See: https://zhanggroup.org/FASTA/
     The tests are:
     File is a text file
     Line length is under 80 char (warning only)
@@ -41,7 +36,10 @@ Define the tests in a file within the directory tests (ex tests/fasta.py). Use c
     Print allowed type
     Ensure the file ends properly
     """
-Then a pytest must be written for each test::
+
+Then a pytest test must be written for each check:
+
+.. code-block:: python
 
     def test_check_line_length(file_path, max_length=80):
         """Check for lines longer than max_length and return warnings."""
@@ -50,19 +48,16 @@ Then a pytest must be written for each test::
             for warning in line_warnings:
                 warnings.warn(warning, UserWarning)
 
+The functions are to be written independently and stored in ``src/ensembl/datacheck_functions``. These methods
+are to be as generic as reasonable and used by as many tests as possible. The methods are stored in files
+based on function:
 
-The functions are to be written independently and stored in src/ensembl/datacheck_functions. These methods are to be as
-generic as reasonable and used by as many tests as possible. The methods are stored in files based on function:
+- ``content_checks.py``: Data checks within a text file
+- ``db_checks.py``: Checking mysql databases (not implemented yet)
+- ``file_checks.py``:  System level checks of files
+- ``utils.py``: Other checks or special commands
 
-content_checks.py : Data checks within a text file
-
-db_checks.py : Checking mysql databases (not implemented yet)
-
-file_checks.py : System level checks of files
-
-utils.py : Other checks or special commands.
-
-Your test will be called, by calling the file name, without extensions, after --test=. ex::
+Your test will be called, by calling the file name, without extensions, after ``--test=``, e.g.::
 
     ensembl-datacheck --test=fasta --file=~/TEST/2pass.fasta
 
@@ -71,9 +66,8 @@ Installation
 
 Download the repo and install it (virtual enviroment recomended)::
 
-    git clone (insert repo here)
+    git clone https://github.com/Ensembl/ensembl-datacheck-py.git
     pip install ensembl-datacheck-py
-
 
 Usage
 -----
@@ -89,16 +83,19 @@ To Do
 - Confluence Page
 - Publish it
 - Introduce tests for tests
+- Add features section in README
 
 
 Contributing
 ------------
 Contributions are very welcome.
 
+
 License
 -------
 
-Distributed under the terms of the `Apache Software License 2.0`_ license, "ensembl-datacheck-py" is free and open source software
+Distributed under the terms of the `Apache Software License 2.0`_ license, "ensembl-datacheck-py" is free
+and open source software.
 
 
 Issues

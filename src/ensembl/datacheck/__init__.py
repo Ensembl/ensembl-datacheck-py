@@ -12,6 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from .pytest_hooks import *
-from .custom_summary_plugin import CustomSummaryPlugin
-from .cache_manager import CacheManager
+"""Ensembl Datachecks."""
+
+__version__ = "1.0.0"

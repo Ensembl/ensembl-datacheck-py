@@ -32,6 +32,7 @@ def database_connection_check(db_session):
     """
     return db_session is not None
 
+
 def tables_not_empty_check(db_session):
     """
     Check that all tables in the database are not empty.
@@ -44,8 +45,15 @@ def tables_not_empty_check(db_session):
     return True, ""
 
 
-
-def find_orphans(db_session, source_model, join_target, filter_column, uuid_field, entity_name, warn=False):
+def find_orphans(
+    db_session,
+    source_model,
+    join_target,
+    filter_column,
+    uuid_field,
+    entity_name,
+    warn=False,
+):
     """
     Generic function to check for orphaned records.
 
@@ -68,10 +76,17 @@ def find_orphans(db_session, source_model, join_target, filter_column, uuid_fiel
     if orphans:
         ids = [getattr(obj, uuid_field) for obj in orphans]
         if warn:
-            #self, message, file_name, function_name)
-            warnings.warn(EnsemblDatacheckWarning(f"Found {len(orphans)} orphaned {entity_name}: {ids}","ensembl_genome_metadata", "check_orphan"))
+            # self, message, file_name, function_name)
+            warnings.warn(
+                EnsemblDatacheckWarning(
+                    f"Found {len(orphans)} orphaned {entity_name}: {ids}",
+                    "ensembl_genome_metadata",
+                    "check_orphan",
+                )
+            )
         else:
             assert False, f"Found {len(orphans)} orphaned {entity_name}: {ids}"
+
 
 def attribute_presence_check(db_session, Model, attribute):
     """
@@ -90,7 +105,8 @@ def attribute_presence_check(db_session, Model, attribute):
     entries = db_session.query(Model).all()
     for entry in entries:
         if not getattr(entry, attribute):
-            return False, f"Entry {getattr(entry, class_mapper(Model).primary_key[0].name)} in {Model.__name__} does not have a valid {attribute}"
+            return (
+                False,
+                f"Entry {getattr(entry, class_mapper(Model).primary_key[0].name)} in {Model.__name__} does not have a valid {attribute}",
+            )
     return True, ""
-
-

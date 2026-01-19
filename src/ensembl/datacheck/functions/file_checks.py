@@ -15,6 +15,7 @@
 
 import os
 
+
 def file_exists(file_path):
     """
     Check if the file exists at the given path.
@@ -28,6 +29,7 @@ def file_exists(file_path):
     if not file_path:
         return False
     return os.path.exists(file_path)
+
 
 def file_size(file_path):
     """
@@ -43,6 +45,7 @@ def file_size(file_path):
         return None
     return os.path.getsize(file_path)
 
+
 def is_text_file(file_path):
     """
     Check if the file at the given path is a text file.
@@ -54,7 +57,7 @@ def is_text_file(file_path):
         bool: True if the file is a text file, False otherwise.
     """
     try:
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             file.read()
         return True
     except Exception:
