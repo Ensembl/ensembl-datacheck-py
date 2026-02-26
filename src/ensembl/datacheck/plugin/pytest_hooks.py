@@ -24,6 +24,49 @@ from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
 from datetime import datetime
 
+def _parse_params(raw_params):
+    """
+    Parse key-value command-line parameters into a dictionary.
+
+    Args:
+        raw_params (list[str] or None): Parameters provided through --params.
+            Each value may contain a comma-separated key=value list.
+
+    Returns:
+        dict: Parsed parameter dictionary where keys and values are strings.
+
+    Raises:
+        pytest.UsageError: If any parameter is not in key=value format.
+    """
+    parsed_params = {}
+    if not raw_params:
+        return parsed_params
+
+    for raw_param in raw_params:
+        for param in raw_param.split(","):
+            param = param.strip()
+            if not param:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{raw_param}'. Empty parameter found."
+                )
+            if "=" not in param:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{param}'. Expected format: key=value."
+                )
+            key, value = param.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{param}'. Parameter key cannot be empty."
+                )
+            if key in parsed_params:
+                raise pytest.UsageError(
+                    f"Duplicate --params key '{key}' is not allowed."
+                )
+            parsed_params[key] = value
+    return parsed_params
+
 def pytest_addoption(parser):
     """
     Adds command-line options to pytest.
@@ -33,6 +76,7 @@ def pytest_addoption(parser):
     """
     parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
     parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
+    parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
     parser.addoption("--test", required=True, help="Name of the test to run")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
     parser.addoption("--native-output", action="store_true", default=False, help="Use native warnings display")
@@ -106,6 +150,19 @@ def db_session(request):
     else:
         yield None
 
+@pytest.fixture(scope="session")
+def params(request):
+    """
+    Pytest fixture to get parsed key-value parameters from command-line options.
+
+    Args:
+        request (pytest.FixtureRequest): The fixture request object.
+
+    Returns:
+        dict: Parsed parameters from --params (keys and values as strings).
+    """
+    return request.config._parsed_params
+
 def pytest_cmdline_main(config):
     """
     Ensures only the specified test file is run.
@@ -151,6 +208,9 @@ def pytest_configure(config):
 
     # Apply custom warning format
     warnings.formatwarning = custom_warning_format
+
+    # Parse and validate key-value parameters
+    config._parsed_params = _parse_params(config.getoption("--params"))
 
     # Handle warning options
     if not config.getoption("--native-output"):
