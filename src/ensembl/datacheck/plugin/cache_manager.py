@@ -26,7 +26,7 @@ class CacheManager:
 
     Attributes:
         config (pytest.Config): Pytest configuration object.
-        file_path (str): Path to the file specified in the command line arguments.
+        file_path (str): Path to the target file specified in the command line arguments.
         test_name (str): Name of the test specified in the command line arguments.
         database_url (str): Database URL specified in the command line arguments.
         cache_dir (pathlib.Path): Directory path where the cache is stored.
@@ -40,7 +40,7 @@ class CacheManager:
             config (pytest.Config): Pytest configuration object.
         """
         self.config = config
-        self.file_path = config.getoption("--file")
+        self.file_path = config.getoption("target_file")
         self.test_name = config.getoption("--test")
         self.database_url = config.getoption("--database")
         self.cache_dir = self.get_cache_dir()
@@ -53,7 +53,7 @@ class CacheManager:
             pathlib.Path: Path to the cache directory.
 
         Raises:
-            ValueError: If neither --file nor --database is provided.
+            ValueError: If neither --target-file/--file nor --database is provided.
         """
         if self.file_path:
             # Generate cache directory based on file hash
@@ -74,7 +74,7 @@ class CacheManager:
             db_name = self.database_url.split('/')[-1]
             cache_dir = pathlib.Path(f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/{server}/{db_name}/{last_update_str}")
         else:
-            raise ValueError("Either --file or --database must be provided.")
+            raise ValueError("Either --target-file/--file or --database must be provided.")
         return cache_dir
 
     def get_results_file(self):

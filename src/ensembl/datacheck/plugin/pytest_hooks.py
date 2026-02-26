@@ -31,7 +31,8 @@ def pytest_addoption(parser):
     Args:
         parser (pytest.Parser): The pytest parser object.
     """
-    parser.addoption("--file", default=None, help="Paths to the files to be tested")
+    parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
+    parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
     parser.addoption("--test", required=True, help="Name of the test to run")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
     parser.addoption("--native-output", action="store_true", default=False, help="Use native warnings display")
@@ -40,20 +41,49 @@ def pytest_addoption(parser):
     parser.addoption("--database", help="Database URL for SQLAlchemy")
 
 @pytest.fixture
-def file_path(request):
+def target_file(request):
     """
-    Pytest fixture to get the file path from the command-line options.
+    Pytest fixture to get the target file path from the command-line options.
 
     Args:
         request (pytest.FixtureRequest): The fixture request object.
 
     Returns:
-        pathlib.Path or None: The file path, or None if not provided.
+        pathlib.Path or None: The target file path, or None if not provided.
     """
-    file_path = request.config.getoption("--file")
+    file_path = request.config.getoption("target_file")
     if file_path:
         file_path = pathlib.Path(file_path).expanduser()
     return file_path
+
+@pytest.fixture
+def file_path(target_file):
+    """
+    Backward-compatible fixture alias for target_file.
+
+    Args:
+        target_file (pathlib.Path or None): The resolved target file path.
+
+    Returns:
+        pathlib.Path or None: The target file path, or None if not provided.
+    """
+    return target_file
+
+@pytest.fixture
+def source_file(request):
+    """
+    Pytest fixture to get the source file path from the command-line options.
+
+    Args:
+        request (pytest.FixtureRequest): The fixture request object.
+
+    Returns:
+        pathlib.Path or None: The source file path, or None if not provided.
+    """
+    source_file = request.config.getoption("source_file")
+    if source_file:
+        source_file = pathlib.Path(source_file).expanduser()
+    return source_file
 
 @pytest.fixture(scope="session")
 def db_session(request):
@@ -127,7 +157,7 @@ def pytest_configure(config):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
 
     # Handle caching logic
-    file_path = config.getoption("--file")
+    file_path = config.getoption("target_file")
     database = config.getoption("--database")
     load_test_results = config.getoption("--load-test-results")
     if (file_path or database) and not config.getoption("--no-cache-results"):
