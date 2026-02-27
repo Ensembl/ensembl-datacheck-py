@@ -33,7 +33,8 @@ dependencies = [
     "pytest>=8.2.2",
     "xxhash",
     "ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git",
-    "sqlalchemy>=2.0"
+    "sqlalchemy>=2.0",
+    "pyBigWig"
 ]
 
 [project.urls]
