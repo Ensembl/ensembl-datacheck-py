@@ -18,7 +18,7 @@ def bb_bw_reader(file_path):
     Provide a pyBigWig reader opened on a bigBed/bigWig file path.
 
     Args:
-        file_path (str): The path to the bigBed/bigWig file.
+        file_path (str or pathlib.Path): The path to the bigBed/bigWig file.
 
     Returns:
         pyBigWig.pyBigWig: Open reader on success.
@@ -28,3 +28,19 @@ def bb_bw_reader(file_path):
     """
     import pyBigWig
     return pyBigWig.open(str(file_path))
+
+def vcf_reader(file_path):
+    """
+    Provide a cyvcf2 VCF reader opened on a VCF file path.
+
+    Args:
+        file_path (str or pathlib.Path): The path to the VCF file.
+
+    Returns:
+        cyvcf2.cyvcf2.VCF: Open reader on success.
+
+    Raises:
+        Exception: Propagates import/open failures from cyvcf2.
+    """
+    from cyvcf2 import VCF
+    return VCF(str(file_path))
