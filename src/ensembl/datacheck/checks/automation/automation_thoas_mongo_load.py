@@ -1,6 +1,28 @@
+# See the NOTICE file distributed with this work for additional information
+# regarding copyright ownership.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 import pytest
 
+"""
+Check that the beta resources are loaded for the genome in the specified collection of Thoas MongoDB.
+Checks performed:
+    - Check genome_uuid  present in specified collection (genome, gene, transcript, protein, region) .
+    - Check scientific_name  present in specified collection (species, organism) .
+"""
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("thoas_mongo")

@@ -1,3 +1,27 @@
+# See the NOTICE file distributed with this work for additional information
+# regarding copyright ownership.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Check that all required metakeys from the metadata database are present in the core database and have non-empty values.
+Checks performed:
+    - Fetch required attributes from the metadata database (other_db_session).
+    - Fetch core database meta_key and meta_value for required attributes (db_session).
+    - Check that all required metakeys exist in the core database.
+    - Check that all required metakeys have non-empty values in the core database.
+"""
+
 import pytest
 from sqlalchemy import text
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
