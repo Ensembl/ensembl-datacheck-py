@@ -168,11 +168,6 @@ def check_compare_count_with_source(target_file, source_file):
         return
 
     observed_ratio = bigwig_count / vcf_count
-    # can remove this print statement for prod, but nice to confirm in dev
-    print(
-        f"Observed BigWig/VCF count ratio: {observed_ratio:.4f} "
-        f"(bigWig={bigwig_count}, vcf={vcf_count})"
-    )
     assert observed_ratio > min_count_ratio, (
         f"BigWig to VCF count ratio is too low: {observed_ratio:.4f} "
         f"(bigWig={bigwig_count}, vcf={vcf_count}, required>{min_count_ratio})."
