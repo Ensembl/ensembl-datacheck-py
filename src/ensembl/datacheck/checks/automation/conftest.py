@@ -13,17 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-import pathlib
-import json
-from pymongo import MongoClient
-
-
 """
 Check that all required metakeys from the metadata database are present in the core database and have non-empty values.
 Checks performed:
     - Fixture For Automation Resource Config: Loads automation resource configuration from a JSON file specified via command-line option.
 """
+
+
+import pytest
+import pathlib
+import json
+from pymongo import MongoClient
 
 
 @pytest.fixture(scope="session")

@@ -13,16 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
-import pytest
-
 """
 Check that the beta resources are loaded for the genome in the specified collection of Thoas MongoDB.
 Checks performed:
     - Check genome_uuid  present in specified collection (genome, gene, transcript, protein, region) .
     - Check scientific_name  present in specified collection (species, organism) .
 """
+
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
+import pytest
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("thoas_mongo")
