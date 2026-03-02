@@ -33,7 +33,15 @@ dependencies = [
     "pytest>=8.2.2",
     "xxhash",
     "ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git",
-    "sqlalchemy>=2.0"
+    "sqlalchemy>=2.0",
+    "pytest-json-report>=1.5.0",
+    "pytest-xdist==3.8.0"
+]
+
+[project.optional-dependencies]
+# "automation" extra includes test and pytest-related packages
+automation = [
+    "pymongo==4.16.0"
 ]
 
 [project.urls]
@@ -42,9 +50,10 @@ Repository = "https://github.com/Ensembl/ensembl-datacheck-py"
 [project.entry-points."console_scripts"]
 ensembl-datacheck = "ensembl.datacheck.runner:main"
 
+
 [tool.pytest.ini_options]
 testpaths = ["src/ensembl/datacheck/checks/"]
-python_files = ["fasta.py"]
+python_files = ["*.py"]
 python_classes = ["*"]
 python_functions = ["check_*"]
 filterwarnings = [
@@ -52,4 +61,4 @@ filterwarnings = [
     "ignore::pytest.PytestCollectionWarning",
     "ignore::sqlalchemy.exc.MovedIn20Warning"
 ]
-
+addopts = "  --json-report "
