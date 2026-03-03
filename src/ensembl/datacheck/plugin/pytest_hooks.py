@@ -101,19 +101,6 @@ def target_file(request):
     return file_path
 
 @pytest.fixture
-def file_path(target_file):
-    """
-    Backward-compatible fixture alias for target_file.
-
-    Args:
-        target_file (pathlib.Path or None): The resolved target file path.
-
-    Returns:
-        pathlib.Path or None: The target file path, or None if not provided.
-    """
-    return target_file
-
-@pytest.fixture
 def source_file(request):
     """
     Pytest fixture to get the source file path from the command-line options.
