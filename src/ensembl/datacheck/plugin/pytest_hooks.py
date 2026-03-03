@@ -24,6 +24,8 @@ from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
 from datetime import datetime
 
+PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
+
 def _parse_params(raw_params):
     """
     Parse key-value command-line parameters into a dictionary.
@@ -101,19 +103,6 @@ def target_file(request):
     return file_path
 
 @pytest.fixture
-def file_path(target_file):
-    """
-    Backward-compatible fixture alias for target_file.
-
-    Args:
-        target_file (pathlib.Path or None): The resolved target file path.
-
-    Returns:
-        pathlib.Path or None: The target file path, or None if not provided.
-    """
-    return target_file
-
-@pytest.fixture
 def source_file(request):
     """
     Pytest fixture to get the source file path from the command-line options.
@@ -161,7 +150,7 @@ def params(request):
     Returns:
         dict: Parsed parameters from --params (keys and values as strings).
     """
-    return request.config._parsed_params
+    return request.config.stash.get(PARSED_PARAMS_STASH_KEY, {})
 
 def pytest_cmdline_main(config):
     """
@@ -210,7 +199,7 @@ def pytest_configure(config):
     warnings.formatwarning = custom_warning_format
 
     # Parse and validate key-value parameters
-    config._parsed_params = _parse_params(config.getoption("--params"))
+    config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
 
     # Handle warning options
     if not config.getoption("--native-output"):
