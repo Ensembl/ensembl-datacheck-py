@@ -24,6 +24,8 @@ from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
 from datetime import datetime
 
+PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
+
 def _parse_params(raw_params):
     """
     Parse key-value command-line parameters into a dictionary.
@@ -148,7 +150,7 @@ def params(request):
     Returns:
         dict: Parsed parameters from --params (keys and values as strings).
     """
-    return request.config._parsed_params
+    return request.config.stash.get(PARSED_PARAMS_STASH_KEY, {})
 
 def pytest_cmdline_main(config):
     """
@@ -197,7 +199,7 @@ def pytest_configure(config):
     warnings.formatwarning = custom_warning_format
 
     # Parse and validate key-value parameters
-    config._parsed_params = _parse_params(config.getoption("--params"))
+    config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
 
     # Handle warning options
     if not config.getoption("--native-output"):
