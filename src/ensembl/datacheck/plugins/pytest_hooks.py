@@ -26,6 +26,7 @@ from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
 from collections import defaultdict
 from datetime import datetime
+import json
 
 
 def pytest_addoption(parser):
@@ -230,10 +231,12 @@ def pytest_configure(config):
             cache_manager.load_test_results()
         cache_manager.setup_cache()
 
-    # register an additional marker for automation resources
+    # register an additional marker for automation resources to group the test and run it
     config.addinivalue_line(
         "markers", "automation_resource(name): mark test to run only on named automation resources"
     )
+    # Place the selected test and write to a file to run the test parallely in nextflow or any other workflow manager.
+    config.selected_tests = defaultdict(list)
 
     # Prevent pytest from automatically running tests here
     config.option.runpytest = False
@@ -302,6 +305,20 @@ def pytest_sessionstart(session):
 # # ### JSON Report Setup on param --json-report  enabled #####
 def pytest_collection_modifyitems(items, config):
     for item in items:
+
+        # Store the selected test item in the config for later use for nextflow or any other workflow manager
+        if config.getoption("--collect-only"):
+            config.selected_tests[item.originalname].append(
+                {
+                    "nodeid": item.nodeid,
+                    "test": item.originalname,
+                    "name": item.name,
+                    "runtest": item.runtest,
+                    "path": item.path,
+                    "params": item.callspec.params if item.callspec else None
+                }
+            )
+        # prepare the json report
         if hasattr(item, "callspec") and "genomes" in item.callspec.params and "genomes" in item.fixturenames:
             genome = item.callspec.params["genomes"]
             item.genome_uuid = genome["genome_uuid"]
@@ -365,3 +382,14 @@ def pytest_json_modifyreport(json_report):
     json_report["results"] = genomes
     json_report["status"] = "failed" if json_report["summary"]["failed"] > 0 else "passed"
     json_report["tag"] = tag
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.getoption("--collect-only"):
+        with open("selected_tests.txt", "w") as f1, open("selected_test_details.txt", "w") as f2:
+            for test in session.config.selected_tests:
+                f1.write(f"{str(test)}\n")
+                for test_detail in session.config.selected_tests[test]:
+                    f2.write(f"{str(test_detail)}\n")
+
+
