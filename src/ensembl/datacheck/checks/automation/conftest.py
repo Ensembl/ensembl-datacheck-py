@@ -19,11 +19,36 @@ Checks performed:
     - Fixture For Automation Resource Config: Loads automation resource configuration from a JSON file specified via command-line option.
 """
 
-
 import pytest
 import pathlib
 import json
 from pymongo import MongoClient
+from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
+
+
+def pytest_generate_tests(metafunc):
+    """
+    Pytest hook to generate test parameters based on command-line options.
+
+    Args:
+        metafunc: The Metafunc object for the test function being collected.
+
+    Returns: None. This function modifies the test parameters in place.
+
+    """
+    test = metafunc.config.getoption("test")
+    # Only generate parameters per genome uuid for tests name that start with "automation"
+    if test.startswith("automation"):
+        db_url = metafunc.config.getoption("database")
+        release_name = metafunc.config.getoption("release_name")
+        genome_uuids = metafunc.config.getoption("genome_uuid")
+
+        genomes_iter = get_genomes_from_metadata_db(
+            db_url=db_url,
+            release_name=release_name,
+            genome_uuids=genome_uuids)  # Fetch all at once since we need to group them in memory
+
+        metafunc.parametrize("genomes", list(genomes_iter), scope="session")
 
 
 @pytest.fixture(scope="session")
@@ -36,7 +61,8 @@ def automation_resource_config(request):
     """
     config = request.config.getoption("--automation_resource_config")
     if not config:
-        raise ValueError("Please provide the path to the automation resource config file using --automation_resource_config")
+        raise ValueError(
+            "Please provide the path to the automation resource config file using --automation_resource_config")
 
     config_path = pathlib.Path(config)
 
@@ -74,4 +100,3 @@ def mongo_client(request, automation_resource_config):
 
     # Cleanup
     client.close()
-
