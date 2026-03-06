@@ -19,6 +19,8 @@ import pickle
 import xxhash
 from sqlalchemy import create_engine, text
 from datetime import datetime
+import os
+
 
 class CacheManager:
     """
@@ -58,7 +60,8 @@ class CacheManager:
         if self.file_path:
             # Generate cache directory based on file hash
             file_hash = xxhash.xxh64_hexdigest(pathlib.Path(self.file_path).read_bytes())
-            cache_dir = pathlib.Path(f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/{file_hash}")
+            cache_dir = pathlib.Path(os.path.join(
+                os.getenv('NOBACKUP_DIR', f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/"), file_hash))
         elif self.database_url:
             # Generate cache directory based on database update time
             engine = create_engine(self.database_url)
@@ -72,7 +75,10 @@ class CacheManager:
                 last_update_str = last_update.strftime('%Y%m%d%H%M%S')
             server = self.database_url.split('@')[1].split('/')[0]
             db_name = self.database_url.split('/')[-1]
-            cache_dir = pathlib.Path(f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/{server}/{db_name}/{last_update_str}")
+            cache_dir = pathlib.Path(os.path.join(
+                os.getenv('NOBACKUP_DIR', f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/"),
+                f"{server}_{db_name}_{last_update_str}"))
+
         else:
             raise ValueError("Either --file or --database must be provided.")
         return cache_dir

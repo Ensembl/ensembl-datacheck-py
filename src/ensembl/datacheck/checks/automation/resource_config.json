@@ -1,0 +1,69 @@
+{
+        "blast": {
+            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/blast",
+            "type": "dir",
+            "expected_files": ["cdna.fa", "cds.fa", "pep.fa", "softmasked.fa", "unmasked.fa"]
+        },
+        "refget": {
+          "type": "dir",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/ensembl-refget",
+            "expected_files": ["cdna.hashes","cds.hashes","chrom.hashes", "pep.hashes",
+              "seqs/cdna.txt.zst","seqs/cds.txt.zst","seqs/pep.txt.zst","seqs/seq.txt.zst"
+            ]
+        },
+        "genome_browser_files": {
+          "type": "dir",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/genome_browser_files",
+            "expected_files": ["chrom.hashes",  "chrom.sizes.ncd",   "genome_report.txt",
+              "simple-features.bb", "chrom.hashes.ncd",  "contigs.bb",
+              "jump.ncd", "transcripts.bb", "chrom.sizes",
+              "gc.bw", "jump.txt"
+            ]
+        },
+        "genesearh": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/solr_index/"
+        },
+        "ftp_dumps_geneset": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "expected_files": ["cdna.fa.gz", "genes.embl.gz", "genes.gff3.gz", "genes.gtf.gz",	"pep.fa.gz", "xref.tsv.gz"]
+        },
+        "ftp_dumps_genomes": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "expected_files": ["hardmasked.fa.gz", "md5sum.txt", "softmasked.fa.gz", "unmasked.fa.gz"]
+        },
+        "ftp_dumps_homology": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "expected_files": ["*.tsv.gz",  "md5sum.txt"]
+        },
+        "ftp_dumps_vep_geneset": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "expected_files": ["genes.gff3.bgz", "genes.gff3.bgz.csi"]
+        },
+        "ftp_dumps_vep_genome": {
+          "type": "file",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "expected_files": ["softmasked.fa.bgz"]
+        },
+        "thoas_mongo_public_resource_uri": {
+          "ignore": "False",
+          "uri": ""
+        },
+        "thoas_mongo_internal_resource_uri": {
+          "ignore": "True",
+          "uri": ""
+        },
+        "compara_dev": {
+          "ignore": "True",
+          "uri": ""
+        },
+        "compara_mongo_uri": {
+          "ignore": "False",
+          "uri": ""
+        }
+}
+

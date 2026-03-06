@@ -201,6 +201,7 @@ class CustomSummaryPlugin:
         Args:
             file_path (str): Path to the file where the summary should be written.
         """
+
         with open(file_path, 'w') as f:
             if not self.no_warnings:
                 self._write_warnings_summary(f)
@@ -231,6 +232,7 @@ class CustomSummaryPlugin:
         Args:
             file (file object): File object where the summary should be written.
         """
+
         if self.failures:
             file.write("Failures summary\n")
             for failure in self.failures:
