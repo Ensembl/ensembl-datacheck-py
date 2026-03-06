@@ -21,36 +21,11 @@ import os
 import warnings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning, get_genomes_from_metadata_db
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
 from collections import defaultdict
 from datetime import datetime
-
-
-def pytest_generate_tests(metafunc):
-    """
-    Pytest hook to generate test parameters based on command-line options.
-
-    Args:
-        metafunc: The Metafunc object for the test function being collected.
-
-    Returns: None. This function modifies the test parameters in place.
-
-    """
-    test = metafunc.config.getoption("test")
-    # Only generate parameters per genome uuid for tests name that start with "automation"
-    if test.startswith("automation"):
-        db_url = metafunc.config.getoption("database")
-        release_name = metafunc.config.getoption("release_name")
-        genome_uuids = metafunc.config.getoption("genome_uuid")
-
-        genomes_iter = get_genomes_from_metadata_db(
-            db_url=db_url,
-            release_name=release_name,
-            genome_uuids=genome_uuids)  # Fetch all at once since we need to group them in memory
-
-        metafunc.parametrize("genomes", list(genomes_iter), scope="session")
 
 
 def pytest_addoption(parser):
@@ -262,6 +237,7 @@ def pytest_configure(config):
 
     # Prevent pytest from automatically running tests here
     config.option.runpytest = False
+
 
 # This function mask the native pytest functionality like dynamic parameters
 # This functionlity to run test name start with check_* is already declared in pyproject.toml under [tool.pytest.ini_options] : python_functions = ["check_*"]
