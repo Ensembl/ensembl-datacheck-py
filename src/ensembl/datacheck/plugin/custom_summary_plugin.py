@@ -84,7 +84,7 @@ class CustomSummaryPlugin:
         Returns:
             str: Formatted assertion error message.
         """
-        file_path, line_number, test_name = report.location
+        target_file, line_number, test_name = report.location
         if isinstance(report.longrepr, tuple):
             longreprtext = "\n".join(map(str, report.longrepr))
         else:
@@ -194,14 +194,14 @@ class CustomSummaryPlugin:
         module_path = parts[0].split("/")[-1].replace(".py", "")
         return f"Pass::{module_path}::{test_name}"
 
-    def write_summary_to_file(self, file_path):
+    def write_summary_to_file(self, target_file):
         """
         Writes the test summary to a file.
 
         Args:
-            file_path (str): Path to the file where the summary should be written.
+            target_file (str): Path to the file where the summary should be written.
         """
-        with open(file_path, 'w') as f:
+        with open(target_file, 'w') as f:
             if not self.no_warnings:
                 self._write_warnings_summary(f)
             self._write_failures_summary(f)
