@@ -97,10 +97,10 @@ def target_file(request):
     Returns:
         pathlib.Path or None: The target file path, or None if not provided.
     """
-    target_file = request.config.getoption("target_file")
-    if target_file:
-        target_file = pathlib.Path(target_file).expanduser()
-    return target_file
+    file_path = request.config.getoption("target_file")
+    if file_path:
+        file_path = pathlib.Path(file_path).expanduser()
+    return file_path
 
 @pytest.fixture
 def source_file(request):
@@ -206,10 +206,10 @@ def pytest_configure(config):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
 
     # Handle caching logic
-    target_file = config.getoption("target_file")
+    file_path = config.getoption("target_file")
     database = config.getoption("--database")
     load_test_results = config.getoption("--load-test-results")
-    if (target_file or database) and not config.getoption("--no-cache-results"):
+    if (file_path or database) and not config.getoption("--no-cache-results"):
         cache_manager = CacheManager(config)
         if load_test_results:
             cache_manager.load_test_results()
