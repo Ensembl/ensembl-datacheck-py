@@ -16,10 +16,9 @@
 """
 Check that the beta resources are loaded for the genome in the Compara MongoDB.
 Checks performed:
-    - Check genome_uuid  present in specified collection (genome_discovery_compara) of Compara MongoDB.
+    - Check genome_uuid present in a specified collection (genome_discovery_compara) of Compara MongoDB.
 """
 
-from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 import pytest
 
 

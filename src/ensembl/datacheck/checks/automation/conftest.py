@@ -25,6 +25,13 @@ import json
 from pymongo import MongoClient
 from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 
+from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
+
+
+@pytest.fixture
+def user_cli(request):
+    return request.config
+
 
 def pytest_generate_tests(metafunc):
     """
@@ -40,6 +47,7 @@ def pytest_generate_tests(metafunc):
     # Only generate parameters per genome uuid for tests name that start with "automation"
     if test.startswith("automation"):
         db_url = metafunc.config.getoption("database")
+        taxonomy_url = metafunc.config.getoption("taxonomy_database")
         release_name = metafunc.config.getoption("release_name")
         genome_uuids = metafunc.config.getoption("genome_uuid")
 
@@ -100,3 +108,4 @@ def mongo_client(request, automation_resource_config):
 
     # Cleanup
     client.close()
+
