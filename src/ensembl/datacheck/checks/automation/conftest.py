@@ -31,6 +31,9 @@ from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
 
 @pytest.fixture
 def user_cli(request):
+    """
+    Fixture for user CLI configuration.
+    """
     return request.config
 
 
