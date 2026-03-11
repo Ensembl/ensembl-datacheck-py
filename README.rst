@@ -43,9 +43,9 @@ Define the tests in a file within the directory tests (ex tests/fasta.py). Use c
     """
 Then a pytest must be written for each test::
 
-    def test_check_line_length(file_path, max_length=80):
+    def test_check_line_length(target_file, max_length=80):
         """Check for lines longer than max_length and return warnings."""
-        line_warnings = check_line_length(file_path, max_length)
+        line_warnings = check_line_length(target_file, max_length)
         if line_warnings:
             for warning in line_warnings:
                 warnings.warn(warning, UserWarning)

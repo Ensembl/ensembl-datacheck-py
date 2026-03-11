@@ -140,20 +140,6 @@ def target_file(request):
 
 
 @pytest.fixture
-def file_path(target_file):
-    """
-    Backward-compatible fixture alias for target_file.
-
-    Args:
-        target_file (pathlib.Path or None): The resolved target file path.
-
-    Returns:
-        pathlib.Path or None: The target file path, or None if not provided.
-    """
-    return target_file
-
-
-@pytest.fixture
 def source_file(request):
     """
     Pytest fixture to get the source file path from the command-line options.
@@ -262,9 +248,9 @@ def pytest_cmdline_main(config):
     base_path = pathlib.Path(__file__).parent.parent / "checks"
 
     # First: check for file checks/<name>.py
-    file_path = base_path / f"{test_name}.py"
-    if file_path.is_file():
-        config.args[:] = [str(file_path)]
+    test_file = base_path / f"{test_name}.py"
+    if test_file.is_file():
+        config.args[:] = [str(test_file)]
         return None
 
     # Fallback: check for directory checks/<name>/
@@ -278,7 +264,7 @@ def pytest_cmdline_main(config):
 
     # If neither exists → fail
     raise pytest.UsageError(
-        f"No test file '{file_path}' or directory '{dir_path}' found."
+        f"No test file '{test_file}' or directory '{dir_path}' found."
     )
 
 
@@ -488,4 +474,3 @@ def pytest_sessionfinish(session, exitstatus):
                 f1.write(f"{str(test)}\n")
                 for test_detail in session.config.selected_tests[test]:
                     f2.write(f"{str(test_detail)}\n")
-
