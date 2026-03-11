@@ -13,21 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import os
-import pathlib
-import warnings
-from collections import defaultdict
-from datetime import datetime
 
+
+import pathlib
+from collections import defaultdict
 import pytest
+import os
+import warnings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
-
-from .cache_manager import CacheManager
 from .custom_summary_plugin import CustomSummaryPlugin
+from .cache_manager import CacheManager
+from datetime import datetime
+import json
 
 PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
 
