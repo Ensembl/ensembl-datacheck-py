@@ -5,7 +5,6 @@ on: [pull_request]
 jobs:
   check-docs-and-license:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -19,3 +18,17 @@ jobs:
         run: |
           pip install -r requirements.txt || true
           python .github/scripts/verify_headers_and_docs.py
+
+  test_utils:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+
+      - name: Run Utils checks
+        run: |
+          pip install .
+          pytest --rootdir=./tests ./tests/
