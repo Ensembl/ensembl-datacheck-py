@@ -13,6 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+variation/conftest.py
+
+Pytest fixtures for variation-specific datachecks.
+
+Fixtures provided:
+1. variation_params: Merges variation default sampling parameters with any
+   user-supplied --params values.
+"""
+
 import pytest
 
 
