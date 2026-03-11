@@ -253,7 +253,11 @@ def pytest_cmdline_main(config):
     # Fallback: check for directory checks/<name>/
     dir_path = base_path / test_name
     if dir_path.is_dir():
-        py_files = sorted(str(p) for p in dir_path.glob("*.py"))
+        py_files = sorted(
+            str(path)
+            for path in dir_path.glob("*.py")
+            if path.name != "conftest.py"
+        )
         if not py_files:
             raise pytest.UsageError(f"No .py files found in directory {dir_path}")
         config.args[:] = py_files
