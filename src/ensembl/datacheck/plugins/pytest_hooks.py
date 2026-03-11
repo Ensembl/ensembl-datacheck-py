@@ -368,8 +368,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         config (pytest.Config): The pytest configuration object.
     """
     yield
-    cache_manager = CacheManager(config)
-    cache_manager.handle_cache_post_run(terminalreporter)
+    if config.getoption("--collect-only"):
+        return
+
+    target_file = config.getoption("target_file")
+    database = config.getoption("--database")
+    if (target_file or database) and not config.getoption("--no-cache-results"):
+        cache_manager = CacheManager(config)
+        cache_manager.handle_cache_post_run(terminalreporter)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -389,6 +395,7 @@ def pytest_sessionstart(session):
 # # ### JSON Report Setup on param --json-report  enabled #####
 def pytest_collection_modifyitems(items, config):
     for item in items:
+        callspec = getattr(item, "callspec", None)
 
         # Store the selected test item in the config for later use for nextflow or any other workflow manager
         if config.getoption("--collect-only"):
@@ -399,12 +406,12 @@ def pytest_collection_modifyitems(items, config):
                     "name": item.name,
                     "runtest": item.runtest,
                     "path": item.path,
-                    "params": item.callspec.params if item.callspec else None
+                    "params": callspec.params if callspec else None
                 }
             )
         # prepare the json report
-        if hasattr(item, "callspec") and "genomes" in item.callspec.params and "genomes" in item.fixturenames:
-            genome = item.callspec.params["genomes"]
+        if callspec and "genomes" in callspec.params and "genomes" in item.fixturenames:
+            genome = callspec.params["genomes"]
             item.genome_uuid = genome["genome_uuid"]
 
 
