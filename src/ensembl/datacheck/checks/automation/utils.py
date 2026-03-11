@@ -25,7 +25,13 @@ missing, an assertion is raised indicating the missing files.
 
 
 from pathlib import Path
+from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
 
+def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid) :
+    """
+    Prepare FTP relative paths for the given genome uuid from metadata.
+    """
+    return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
 
 def validate_expected_files(base_path, relative_path, expected_files, resource_label):
     """Validate that a resource path exists and contains all expected files."""

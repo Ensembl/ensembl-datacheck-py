@@ -26,13 +26,9 @@ Checks performed:
 
 import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
-from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
+from ensembl.datacheck.checks.automation.utils import get_ftp_paths
 
-def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid) :
-    """
-    Prepare FTP relative paths for the given genome uuid from metadata.
-    """
-    return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
+
 
 
 def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource_key, dataset_name):
