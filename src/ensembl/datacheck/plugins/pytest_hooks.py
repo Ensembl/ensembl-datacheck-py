@@ -276,23 +276,6 @@ def pytest_configure(config):
     config.option.runpytest = False
 
 
-# This function mask the native pytest functionality like dynamic parameters
-# This functionlity to run test name start with check_* is already declared in pyproject.toml under [tool.pytest.ini_options] : python_functions = ["check_*"]
-# def pytest_pycollect_makeitem(collector, name, obj):
-#     """
-#     Custom item collection to support test naming convention.
-#
-#     Args:
-#         collector (pytest.Collector): The collector object.
-#         name (str): Name of the test item.
-#         obj (callable): The test function.
-#
-#     Returns:
-#         pytest.Function: The pytest Function item if the naming convention matches, else None.
-#     """
-#     if name.startswith("check_") and callable(obj):
-#         return pytest.Function.from_parent(collector, name=name)
-
 @pytest.hookimpl(tryfirst=True)
 def pytest_report_header(config):
     """
