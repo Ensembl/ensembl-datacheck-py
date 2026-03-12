@@ -28,7 +28,7 @@ class CacheManager:
 
     Attributes:
         config (pytest.Config): Pytest configuration object.
-        file_path (str): Path to the file specified in the command line arguments.
+        target_file (str): Path to the target file specified in the command line arguments.
         test_name (str): Name of the test specified in the command line arguments.
         database_url (str): Database URL specified in the command line arguments.
         cache_dir (pathlib.Path): Directory path where the cache is stored.
@@ -42,7 +42,7 @@ class CacheManager:
             config (pytest.Config): Pytest configuration object.
         """
         self.config = config
-        self.file_path = config.getoption("--file")
+        self.target_file = config.getoption("target_file")
         self.test_name = config.getoption("--test")
         self.database_url = config.getoption("--database")
         self.cache_dir = self.get_cache_dir()
@@ -55,11 +55,11 @@ class CacheManager:
             pathlib.Path: Path to the cache directory.
 
         Raises:
-            ValueError: If neither --file nor --database is provided.
+            ValueError: If neither --target-file/--file nor --database is provided.
         """
-        if self.file_path:
+        if self.target_file:
             # Generate cache directory based on file hash
-            file_hash = xxhash.xxh64_hexdigest(pathlib.Path(self.file_path).read_bytes())
+            file_hash = xxhash.xxh64_hexdigest(pathlib.Path(self.target_file).read_bytes())
             cache_dir = pathlib.Path(os.path.join(
                 os.getenv('NOBACKUP_DIR', f"/hps/nobackup/flicek/ensembl/production/datachecks/python_dc/"), file_hash))
         elif self.database_url:
@@ -80,7 +80,7 @@ class CacheManager:
                 f"{server}_{db_name}_{last_update_str}"))
 
         else:
-            raise ValueError("Either --file or --database must be provided.")
+            raise ValueError("Either --target-file/--file or --database must be provided.")
         return cache_dir
 
     def get_results_file(self):
@@ -90,8 +90,8 @@ class CacheManager:
         Returns:
             pathlib.Path: Path to the results file.
         """
-        if self.file_path:
-            filename = pathlib.Path(self.file_path).stem
+        if self.target_file:
+            filename = pathlib.Path(self.target_file).stem
             results_file = self.cache_dir / f"{filename}_results.txt"
         else:
             results_file = self.cache_dir / "results.txt"
@@ -138,7 +138,7 @@ class CacheManager:
             print(results_file.read_text())
             pytest.exit("Previous test results loaded, exiting.")
         else:
-            raise FileNotFoundError(f"No previous test results found for {self.file_path or self.database_url}")
+            raise FileNotFoundError(f"No previous test results found for {self.target_file or self.database_url}")
 
     def handle_cache_post_run(self, terminalreporter):
         """

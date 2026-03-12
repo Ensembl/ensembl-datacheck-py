@@ -34,6 +34,8 @@ dependencies = [
     "xxhash",
     "ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git",
     "sqlalchemy>=2.0",
+    "pyBigWig",
+    "cyvcf2",
     "pytest-json-report>=1.5.0",
     "pytest-xdist==3.8.0"
 ]

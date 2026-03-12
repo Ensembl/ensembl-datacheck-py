@@ -32,51 +32,51 @@ from ensembl.datacheck.functions.content_checks import line_length_check, allowe
 from ensembl.datacheck.functions.file_checks import is_text_file
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 
-def check_if_text_file(file_path):
+def check_if_text_file(target_file):
     """
     Check that the file is a text file.
 
     Args:
-        file_path (str): The path to the file.
+        target_file (str): The path to the file.
 
     Raises:
         AssertionError: If the file is not identified as a text file.
     """
-    assert is_text_file(file_path), "The file is not identified as a text file."
+    assert is_text_file(target_file), "The file is not identified as a text file."
 
-def check_line_length(file_path, max_length=80):
+def check_line_length(target_file, max_length=80):
     """
     Check for lines longer than the specified maximum length and issue warnings.
 
     Args:
-        file_path (str): The path to the file.
+        target_file (str): The path to the file.
         max_length (int): The maximum allowed line length. Defaults to 80.
     """
-    line_warnings = line_length_check(file_path, max_length)
+    line_warnings = line_length_check(target_file, max_length)
     if line_warnings:
         for warning in line_warnings:
             warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_line_length"))
 
-def check_allowed_character(file_path):
+def check_allowed_character(target_file):
     """
     Check that the file contains only allowed characters for nucleotide or protein sequences.
 
     Args:
-        file_path (str): The path to the file.
+        target_file (str): The path to the file.
 
     Raises:
         AssertionError: If any line contains characters not allowed in nucleotide or protein sequences.
     """
-    line = allowed_character_check(file_path, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
+    line = allowed_character_check(target_file, "ABCDEFGHIKLMNPQRSTUVWXYZ*-")
     assert line is True or line is None, f"Line {line} does not match either nucleotide or protein configurations."
 
-def check_ends_with_newline(file_path):
+def check_ends_with_newline(target_file):
     """
     Check that the file ends with a newline character.
 
     Args:
-        file_path (str): The path to the file.
+        target_file (str): The path to the file.
     """
-    if not ends_with_newline(file_path):
-        warning = f"The file {file_path} does not end in a newline character."
+    if not ends_with_newline(target_file):
+        warning = f"The file {target_file} does not end in a newline character."
         warnings.warn(EnsemblDatacheckWarning(warning, "fasta", "check_ends_with_newline"))

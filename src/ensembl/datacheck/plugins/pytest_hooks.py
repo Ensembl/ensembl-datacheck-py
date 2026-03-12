@@ -15,7 +15,6 @@
 
 import pathlib
 from collections import defaultdict
-
 import pytest
 import os
 import warnings
@@ -24,9 +23,54 @@ from sqlalchemy.orm import sessionmaker
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
-from collections import defaultdict
 from datetime import datetime
 import json
+
+PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
+
+
+def _parse_params(raw_params):
+    """
+    Parse key-value command-line parameters into a dictionary.
+
+    Args:
+        raw_params (list[str] or None): Parameters provided through --params.
+            Each value may contain a comma-separated key=value list.
+
+    Returns:
+        dict: Parsed parameter dictionary where keys and values are strings.
+
+    Raises:
+        pytest.UsageError: If any parameter is not in key=value format.
+    """
+    parsed_params = {}
+    if not raw_params:
+        return parsed_params
+
+    for raw_param in raw_params:
+        for param in raw_param.split(","):
+            param = param.strip()
+            if not param:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{raw_param}'. Empty parameter found."
+                )
+            if "=" not in param:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{param}'. Expected format: key=value."
+                )
+            key, value = param.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                raise pytest.UsageError(
+                    f"Invalid --params value '{param}'. Parameter key cannot be empty."
+                )
+            if key in parsed_params:
+                raise pytest.UsageError(
+                    f"Duplicate --params key '{key}' is not allowed."
+                )
+            parsed_params[key] = value
+    return parsed_params
 
 
 def pytest_addoption(parser):
@@ -36,7 +80,9 @@ def pytest_addoption(parser):
     Args:
         parser (pytest.Parser): The pytest parser object.
     """
-    parser.addoption("--file", default=None, help="Paths to the files to be tested")
+    parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
+    parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
+    parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
     parser.addoption("--test", required=True, help="Name of the test to run")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
     parser.addoption("--native-output", action="store_true", default=False, help="Use native warnings display")
@@ -74,20 +120,37 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture
-def file_path(request):
+def target_file(request):
     """
-    Pytest fixture to get the file path from the command-line options.
+    Pytest fixture to get the target file path from the command-line options.
 
     Args:
         request (pytest.FixtureRequest): The fixture request object.
 
     Returns:
-        pathlib.Path or None: The file path, or None if not provided.
+        pathlib.Path or None: The target file path, or None if not provided.
     """
-    file_path = request.config.getoption("--file")
-    if file_path:
-        file_path = pathlib.Path(file_path).expanduser()
-    return file_path
+    target_file = request.config.getoption("target_file")
+    if target_file:
+        target_file = pathlib.Path(target_file).expanduser()
+    return target_file
+
+
+@pytest.fixture
+def source_file(request):
+    """
+    Pytest fixture to get the source file path from the command-line options.
+
+    Args:
+        request (pytest.FixtureRequest): The fixture request object.
+
+    Returns:
+        pathlib.Path or None: The source file path, or None if not provided.
+    """
+    source_file = request.config.getoption("source_file")
+    if source_file:
+        source_file = pathlib.Path(source_file).expanduser()
+    return source_file
 
 
 @pytest.fixture(scope="session")
@@ -134,6 +197,20 @@ def other_db_session(request):
         yield None
 
 
+@pytest.fixture(scope="session")
+def params(request):
+    """
+    Pytest fixture to get parsed key-value parameters from command-line options.
+
+    Args:
+        request (pytest.FixtureRequest): The fixture request object.
+
+    Returns:
+        dict: Parsed parameters from --params (keys and values as strings).
+    """
+    return request.config.stash.get(PARSED_PARAMS_STASH_KEY, {})
+
+
 # def pytest_cmdline_main(config):
 #     """
 #     Ensures only the specified test file is run.
@@ -168,15 +245,19 @@ def pytest_cmdline_main(config):
     base_path = pathlib.Path(__file__).parent.parent / "checks"
 
     # First: check for file checks/<name>.py
-    file_path = base_path / f"{test_name}.py"
-    if file_path.is_file():
-        config.args[:] = [str(file_path)]
+    test_file = base_path / f"{test_name}.py"
+    if test_file.is_file():
+        config.args[:] = [str(test_file)]
         return None
 
     # Fallback: check for directory checks/<name>/
     dir_path = base_path / test_name
     if dir_path.is_dir():
-        py_files = sorted(str(p) for p in dir_path.glob("*.py"))
+        py_files = sorted(
+            str(path)
+            for path in dir_path.glob("*.py")
+            if path.name != "conftest.py"
+        )
         if not py_files:
             raise pytest.UsageError(f"No .py files found in directory {dir_path}")
         config.args[:] = py_files
@@ -184,7 +265,7 @@ def pytest_cmdline_main(config):
 
     # If neither exists → fail
     raise pytest.UsageError(
-        f"No test file '{file_path}' or directory '{dir_path}' found."
+        f"No test file '{test_file}' or directory '{dir_path}' found."
     )
 
 
@@ -217,15 +298,18 @@ def pytest_configure(config):
     # Apply custom warning format
     warnings.formatwarning = custom_warning_format
 
+    # Parse and validate key-value parameters
+    config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
+
     # Handle warning options
     if not config.getoption("--native-output"):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
 
     # Handle caching logic
-    file_path = config.getoption("--file")
+    target_file = config.getoption("target_file")
     database = config.getoption("--database")
     load_test_results = config.getoption("--load-test-results")
-    if (file_path or database) and not config.getoption("--no-cache-results"):
+    if (target_file or database) and not config.getoption("--no-cache-results"):
         cache_manager = CacheManager(config)
         if load_test_results:
             cache_manager.load_test_results()
@@ -284,8 +368,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         config (pytest.Config): The pytest configuration object.
     """
     yield
-    cache_manager = CacheManager(config)
-    cache_manager.handle_cache_post_run(terminalreporter)
+    if config.getoption("--collect-only"):
+        return
+
+    target_file = config.getoption("target_file")
+    database = config.getoption("--database")
+    if (target_file or database) and not config.getoption("--no-cache-results"):
+        cache_manager = CacheManager(config)
+        cache_manager.handle_cache_post_run(terminalreporter)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -305,6 +395,7 @@ def pytest_sessionstart(session):
 # # ### JSON Report Setup on param --json-report  enabled #####
 def pytest_collection_modifyitems(items, config):
     for item in items:
+        callspec = getattr(item, "callspec", None)
 
         # Store the selected test item in the config for later use for nextflow or any other workflow manager
         if config.getoption("--collect-only"):
@@ -315,12 +406,12 @@ def pytest_collection_modifyitems(items, config):
                     "name": item.name,
                     "runtest": item.runtest,
                     "path": item.path,
-                    "params": item.callspec.params if item.callspec else None
+                    "params": callspec.params if callspec else None
                 }
             )
         # prepare the json report
-        if hasattr(item, "callspec") and "genomes" in item.callspec.params and "genomes" in item.fixturenames:
-            genome = item.callspec.params["genomes"]
+        if callspec and "genomes" in callspec.params and "genomes" in item.fixturenames:
+            genome = callspec.params["genomes"]
             item.genome_uuid = genome["genome_uuid"]
 
 
@@ -391,5 +482,3 @@ def pytest_sessionfinish(session, exitstatus):
                 f1.write(f"{str(test)}\n")
                 for test_detail in session.config.selected_tests[test]:
                     f2.write(f"{str(test_detail)}\n")
-
-
