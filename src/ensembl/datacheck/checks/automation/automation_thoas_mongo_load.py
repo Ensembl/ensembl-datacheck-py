@@ -51,6 +51,7 @@ class TestThoasMongoLoaded:
         self.mongo_client = mongo_client
         self.db = self.mongo_client[self.db_name]
 
+
     @pytest.mark.parametrize("collection_name", collections_to_check)
     def check_thoas_mongo_loaded_for_collection(self, collection_name):
         """

@@ -23,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from .custom_summary_plugin import CustomSummaryPlugin
 from .cache_manager import CacheManager
+from collections import defaultdict
 from datetime import datetime
 import json
 
@@ -101,6 +102,8 @@ def pytest_addoption(parser):
                      help="Custom tag to include in the JSON report metadata for each test item")
     parser.addoption("--other_database", help="Additional Database URL for SQLAlchemy, if needed for specific checks,"
                                               " eg. production db or metadata db for core database")
+    parser.addoption("--taxonomy_database", help="Additional Database URL for SQLAlchemy, if needed for specific checks,"
+                                                 " eg. production db or metadata db for taxonomy database")
 
 
 def pytest_runtest_setup(item):
@@ -152,82 +155,29 @@ def source_file(request):
         source_file = pathlib.Path(source_file).expanduser()
     return source_file
 
+# db session factory
+def _create_session_fixture(option_name):
+    @pytest.fixture(scope="session")
+    def _fixture(request):
+        database_url = request.config.getoption(option_name)
 
-@pytest.fixture(scope="session")
-def db_session(request):
-    """
-    Pytest fixture to create a SQLAlchemy database session.
+        if database_url:
+            engine = create_engine(database_url)
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            yield session
+            session.close()
+        else:
+            yield None
 
-    Args:
-        request (pytest.FixtureRequest): The fixture request object.
-
-    Yields:
-        sqlalchemy.orm.Session or None: The database session, or None if not provided.
-    """
-    database_url = request.config.getoption("--database")
-    if database_url:
-        engine = create_engine(database_url)
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        yield session
-        session.close()
-    else:
-        yield None
+    return _fixture
 
 
-@pytest.fixture(scope="session")
-def other_db_session(request):
-    """
-    Pytest fixture to create a SQLAlchemy database session.
-
-    Args:
-        request (pytest.FixtureRequest): The fixture request object.
-
-    Yields:
-        sqlalchemy.orm.Session or None: The database session, or None if not provided.
-    """
-    database_url = request.config.getoption("--other_database")
-    if database_url:
-        engine = create_engine(database_url)
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        yield session
-        session.close()
-    else:
-        yield None
+# Prepare fixture for db session
+db_session = _create_session_fixture("database")
+other_db_session = _create_session_fixture("other_database")
 
 
-@pytest.fixture(scope="session")
-def params(request):
-    """
-    Pytest fixture to get parsed key-value parameters from command-line options.
-
-    Args:
-        request (pytest.FixtureRequest): The fixture request object.
-
-    Returns:
-        dict: Parsed parameters from --params (keys and values as strings).
-    """
-    return request.config.stash.get(PARSED_PARAMS_STASH_KEY, {})
-
-
-# def pytest_cmdline_main(config):
-#     """
-#     Ensures only the specified test file is run.
-#
-#     Args:
-#         config (pytest.Config): The pytest configuration object.
-#
-#     Raises:
-#         pytest.UsageError: If the specified test file does not exist.
-#     """
-#     test_name = config.getoption("--test")
-#     if test_name:
-#         test_file = pathlib.Path(__file__).parent.parent / "checks" / f"{test_name}.py"
-#         if not os.path.isfile(test_file):
-#             raise pytest.UsageError(f"Test file {test_file} does not exist.")
-#         config.args[:] = [str(test_file)]  # Ensure only the specified test file is run
-#     return None
 
 def pytest_cmdline_main(config):
     """
@@ -325,23 +275,6 @@ def pytest_configure(config):
     # Prevent pytest from automatically running tests here
     config.option.runpytest = False
 
-
-# This function mask the native pytest functionality like dynamic parameters
-# This functionlity to run test name start with check_* is already declared in pyproject.toml under [tool.pytest.ini_options] : python_functions = ["check_*"]
-# def pytest_pycollect_makeitem(collector, name, obj):
-#     """
-#     Custom item collection to support test naming convention.
-#
-#     Args:
-#         collector (pytest.Collector): The collector object.
-#         name (str): Name of the test item.
-#         obj (callable): The test function.
-#
-#     Returns:
-#         pytest.Function: The pytest Function item if the naming convention matches, else None.
-#     """
-#     if name.startswith("check_") and callable(obj):
-#         return pytest.Function.from_parent(collector, name=name)
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_report_header(config):
