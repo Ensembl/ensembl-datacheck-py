@@ -20,7 +20,7 @@
               "gc.bw", "jump.txt"
             ]
         },
-        "genesearh": {
+        "genesearch": {
           "type": "file",
           "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/solr_index/"
         },
