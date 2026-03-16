@@ -110,7 +110,7 @@ class CacheManager:
             if results_file.exists() and not cache_file.exists():
                 print("Using cached results:")
                 print(results_file.read_text())
-                pytest.exit("Using cached results, exiting.")
+                pytest.exit("Using cached results, exiting.", returncode=0)
 
             if cache_file.exists():
                 with cache_file.open("rb") as f:
