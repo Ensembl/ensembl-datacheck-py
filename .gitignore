@@ -98,3 +98,4 @@ db.sqlite3
 *.tmp
 *.bak
 *.orig
+/build/
