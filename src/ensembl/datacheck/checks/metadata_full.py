@@ -27,10 +27,9 @@ Checks performed:
 8. check_genome_released_with_datasets: Ensures all Released genomes have required datasets
 9. check_orphan: Ensures no orphaned records (datasets, organisms, assemblies, etc.)
 10. check_missing_checksums: Ensures all Released assembly sequences have checksums
+11. check_one_current_genome_per_assembly_provider: Ensures that we don't have multiple current genomes for the same set
 
-To Be implemented post schema3:
-Only one is_current dataset per type is allowed per genome
-Only one is_current for each Assembly/genebuild.provider
+To Be implemented when attributes are fixed:
 Required attributes are present
 """
 import warnings
@@ -39,7 +38,7 @@ import pytest
 from sqlalchemy import or_, func, String, Text
 from ensembl.production.metadata.api.models import Dataset, GenomeDataset, DatasetStatus, EnsemblRelease, ReleaseStatus, \
     Organism, Genome, OrganismGroup, OrganismGroupMember, Assembly, AssemblySequence, DatasetSource, GenomeRelease, \
-    DatasetType
+    DatasetType, GenomeGroup, GenomeGroupMember
 from ensembl.production.metadata.api.models.base import Base
 from ensembl.datacheck.functions.db_checks import (
     database_connection_check,
@@ -126,7 +125,7 @@ def check_no_invalid_string_values(db_session):
         for problem in problems:
             error_msg += f"  Table '{problem['table']}', Column '{problem['column']}': "
             error_msg += f"{problem['count']} rows with value {problem['invalid_value']}\n"
-        assert False, error_msg
+        pytest.fail(error_msg)
 
 
 @pytest.mark.usefixtures("db_session")
@@ -284,15 +283,19 @@ def check_only_one_current_dataset_per_type(db_session):
     Check that each genome has only one is_current dataset for each dataset_type
     in partial released releases.
 
-    TODO: Update after schema 3 to handle dataset types with multiple is_current.
+    For dataset types with multiple_current=0, only one is_current dataset is
+    allowed per type per genome.
+    For dataset types with multiple_current=1, multiple is_current datasets are
+    allowed per type, but only one per dataset name per genome.
 
     Args:
         db_session (sqlalchemy.orm.Session): The database session.
 
     Raises:
-        AssertionError: If any genome has multiple is_current datasets of the same type.
+        AssertionError: If any genome has multiple is_current datasets of the same type
+                        (or same type+name for multiple_current types).
     """
-    results = (
+    base_query = (
         db_session.query(
             Genome.genome_id,
             Genome.production_name,
@@ -308,16 +311,45 @@ def check_only_one_current_dataset_per_type(db_session):
             EnsemblRelease.release_type == 'partial',
             EnsemblRelease.status == ReleaseStatus.RELEASED
         )
+    )
+
+    # For single-current types: only one is_current allowed per type per genome
+    single_current_results = (
+        base_query
+        .filter(DatasetType.multiple_current == 0)
         .group_by(Genome.genome_id, Dataset.dataset_type_id)
         .having(func.count() > 1)
         .all()
     )
 
-    if results:
+    # For multiple-current types: only one is_current allowed per type+name per genome
+    multi_current_results = (
+        base_query
+        .add_columns(Dataset.name.label('dataset_name'))
+        .filter(DatasetType.multiple_current == 1)
+        .group_by(Genome.genome_id, Dataset.dataset_type_id, Dataset.name)
+        .having(func.count() > 1)
+        .all()
+    )
+
+    problems = []
+
+    for row in single_current_results:
+        problems.append(
+            f"  Genome {row.genome_id} ({row.production_name}): "
+            f"{row.current_count} current '{row.dataset_type}' datasets"
+        )
+
+    for row in multi_current_results:
+        problems.append(
+            f"  Genome {row.genome_id} ({row.production_name}): "
+            f"{row.current_count} current '{row.dataset_type}' datasets with name '{row.dataset_name}'"
+        )
+
+    if problems:
         error_msg = "Found genomes with multiple is_current datasets of the same type:\n"
-        for row in results:
-            error_msg += f"  Genome {row.genome_id} ({row.production_name}): {row.current_count} current {row.dataset_type} datasets\n"
-        assert False, error_msg
+        error_msg += "\n".join(problems)
+        pytest.fail(error_msg)
 
 
 @pytest.mark.usefixtures("db_session")
@@ -408,7 +440,7 @@ def check_genome_released_with_datasets(db_session):
 
     if problems:
         error_msg = "Found Released genomes missing required datasets:\n  " + "\n  ".join(problems)
-        assert False, error_msg
+        pytest.fail(error_msg)
 
     if minor_problems:
         error_msg = "Found Released genomes missing compara datasets:\n  " + "\n  ".join(minor_problems)
@@ -426,9 +458,8 @@ def check_orphan(db_session):
     - Organisms without genomes (Fail)
     - Organism groups without members (Warn)
     - Assemblies without genomes (Fail)
+    - Genome groups without members (Warn)
     - Dataset sources without datasets (Warn)
-
-    TODO: Add orphaned genome groups check after schema 3 migration.
 
     Args:
         db_session (sqlalchemy.orm.Session): The database session.
@@ -464,6 +495,15 @@ def check_orphan(db_session):
         warn=True
     )
 
+    find_orphans(
+        db_session,
+        source_model=GenomeGroup,
+        join_target=GenomeGroupMember,
+        filter_column=GenomeGroupMember.genome_group_id,
+        uuid_field='name',
+        entity_name='genome_group',
+        warn=True
+    )
     find_orphans(
         db_session,
         source_model=Assembly,
@@ -515,3 +555,46 @@ def check_missing_checksums(db_session):
     if assemblies_missing_checksums:
         assembly_ids = [a.assembly_uuid for a in assemblies_missing_checksums]
         assert False, f"Found {len(assemblies_missing_checksums)} Released assemblies with missing checksums: {assembly_ids}"
+
+@pytest.mark.usefixtures("db_session")
+def check_one_current_genome_per_assembly_provider(db_session):
+    """
+    Check that for each (assembly, provider) combination, only one genome has
+    an is_current GenomeRelease entry in a partial released release.
+
+    Args:
+        db_session (sqlalchemy.orm.Session): The database session.
+
+    Raises:
+        AssertionError: If any (assembly, provider) group has more than one is_current genome.
+    """
+    results = (
+        db_session.query(
+            Assembly.assembly_uuid,
+            Genome.provider_name,
+            func.count().label('current_count'),
+            func.group_concat(Genome.genome_uuid).label('genome_uuids')
+        )
+        .join(Genome, Genome.assembly_id == Assembly.assembly_id)
+        .join(GenomeRelease, GenomeRelease.genome_id == Genome.genome_id)
+        .join(EnsemblRelease, EnsemblRelease.release_id == GenomeRelease.release_id)
+        .filter(
+            GenomeRelease.is_current == 1,
+            EnsemblRelease.release_type == 'partial',
+            EnsemblRelease.status == ReleaseStatus.RELEASED
+        )
+        .group_by(Assembly.assembly_uuid, Genome.provider_name)
+        .having(func.count() > 1)
+        .all()
+    )
+
+    if results:
+        problems = []
+        for row in results:
+            problems.append(
+                f"  Assembly {row.assembly_uuid}, provider '{row.provider_name}': "
+                f"{row.current_count} is_current genomes ({row.genome_uuids})"
+            )
+        error_msg = "Found multiple is_current genomes for the same assembly/provider combination:\n"
+        error_msg += "\n".join(problems)
+        pytest.fail(error_msg)
