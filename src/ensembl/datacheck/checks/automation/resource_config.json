@@ -27,12 +27,18 @@
         "ftp_dumps_geneset": {
           "type": "file",
           "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
-          "expected_files": ["cdna.fa.gz", "genes.embl.gz", "genes.gff3.gz", "genes.gtf.gz",	"pep.fa.gz", "xref.tsv.gz"]
+          "expected_files": ["cdna.fa.bgz", "cdna.fa.bgz.fai", "genes.embl.gz", 
+                  "genes.gff3.bgz", "genes.gff3.bgz.csi", "genes.gff3.gz",
+                  "genes.gtf.bgz", "genes.gtf.bgz.csi", "genes.gtf.gz",
+                  "md5sum.txt", "pep.fa.bgz", "pep.fa.bgz.fai",
+                  "xref.tsv.gz"]
         },
         "ftp_dumps_genomes": {
           "type": "file",
           "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
-          "expected_files": ["hardmasked.fa.gz", "md5sum.txt", "softmasked.fa.gz", "unmasked.fa.gz"]
+          "expected_files": ["hardmasked.fa.bgz", "hardmasked.fa.bgz.fai", "md5sum.txt", 
+                  "softmasked.fa.bgz", "softmasked.fa.bgz.fai", "unmasked.fa.bgz",
+                  "unmasked.fa.bgz.fai"]
         },
         "ftp_dumps_homology": {
           "type": "file",
