@@ -22,6 +22,7 @@ Checks performed:
 """
 
 import pytest
+from pathlib import Path
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
 
 
@@ -44,9 +45,14 @@ def check_blast_expected_files(genomes, automation_resource_config):
     assert expected_files, "Missing blast.expected_files in automation resource config."
 
     genome_uuid = genomes["genome_uuid"]
+    release_name = genomes.get("release_name")
+    assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
+
+
+
     validate_expected_files(
         base_path=base_path,
-        relative_path=genome_uuid,
+        relative_path=Path(f"release_{release_name}") / genome_uuid,
         expected_files=expected_files,
         resource_label=f"BLAST (genome_uuid={genome_uuid})",
     )
