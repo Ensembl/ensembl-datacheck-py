@@ -53,11 +53,27 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
         "Provide taxonomy DB URL (e.g. --taxonomy_database mysql+pymysql://user:pass@host/db)."
     )
 
-    ftp_paths = get_ftp_paths(metadata_uri=metadata_db_uri, taxonomy_uri=taxonomy_db_uri, genome_uuid=genomes['genome_uuid'])
+    ftp_paths = get_ftp_paths(
+        metadata_uri=metadata_db_uri,
+        taxonomy_uri=taxonomy_db_uri,
+        genome_uuid=genomes["genome_uuid"],
+    )
+    if isinstance(ftp_paths, dict):
+        ftp_paths_by_dataset = ftp_paths
+    else:
+        ftp_paths_by_dataset = {
+            item["dataset_type"]: item["path"]
+            for item in ftp_paths
+            if isinstance(item, dict) and "dataset_type" in item and "path" in item
+        }
+    assert dataset_name in ftp_paths_by_dataset, (
+        f"Dataset type '{dataset_name}' not found in metadata public paths for "
+        f"genome_uuid={genomes['genome_uuid']}. Available: {sorted(ftp_paths_by_dataset)}"
+    )
 
     validate_expected_files(
         base_path=base_path,
-        relative_path=ftp_paths[dataset_name],
+        relative_path=ftp_paths_by_dataset[dataset_name],
         expected_files=expected_files,
         resource_label=f"{resource_key} (genome_uuid={genomes['genome_uuid']})",
     )
