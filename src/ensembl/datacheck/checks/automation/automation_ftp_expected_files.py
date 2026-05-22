@@ -44,6 +44,14 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
 
     metadata_db_uri = user_cli.getoption("--database")
     taxonomy_db_uri = user_cli.getoption("--taxonomy_database")
+    assert metadata_db_uri, (
+        "Missing --database for FTP automation checks. "
+        "Provide metadata DB URL (e.g. --database mysql+pymysql://user:pass@host/db)."
+    )
+    assert taxonomy_db_uri, (
+        "Missing --taxonomy_database for FTP automation checks. "
+        "Provide taxonomy DB URL (e.g. --taxonomy_database mysql+pymysql://user:pass@host/db)."
+    )
 
     ftp_paths = get_ftp_paths(metadata_uri=metadata_db_uri, taxonomy_uri=taxonomy_db_uri, genome_uuid=genomes['genome_uuid'])
 
@@ -60,7 +68,7 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
 @pytest.mark.automation_resource("ftp_dumps_geneset")
 def check_ftp_dumps_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_geneset."""
-    _check_ftp_resource(genomes, automation_resource_config, "ftp_dumps_geneset", 'genebuild')
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_geneset", 'genebuild')
 
 
 @pytest.mark.automation_resource("all")
@@ -92,4 +100,4 @@ def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_res
 @pytest.mark.automation_resource("ftp_dumps_vep_genome")
 def check_ftp_dumps_vep_genome_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_genome."""
-    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'genebuild')
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'assembly')
