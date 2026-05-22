@@ -65,9 +65,10 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
 
     """
     release_name = release_name.split(',') if release_name else None
+    genome_uuids = genome_uuids if genome_uuids else None
     genomes_iter = GenomeFactory().get_genomes(
                 metadata_db_uri=db_url,
-                genome_uuid=[genome_uuids],
+                genome_uuid=genome_uuids,
                 dataset_type="genebuild",
                 dataset_names=["genebuild"],
                 release_name=release_name,
