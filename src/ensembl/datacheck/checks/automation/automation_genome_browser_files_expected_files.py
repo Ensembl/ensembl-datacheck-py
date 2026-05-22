@@ -25,6 +25,49 @@ from pathlib import Path
 import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
 
+ALLOWED_GENOME_BROWSER_FILE_ENDINGS = {
+    ".hashes",
+    ".hashes.ncd",
+    ".sizes",
+    ".sizes.ncd",
+    ".bb",
+    ".bed",
+    ".bw",
+    ".wig",
+    ".txt",
+    ".ncd",
+}
+
+
+def _validate_only_allowed_genome_browser_extensions(base_path, relative_path, resource_label):
+    """Fail if any file has an extension not in ALLOWED_GENOME_BROWSER_FILE_ENDINGS."""
+    resource_path = Path(base_path) / relative_path
+    unexpected_files = sorted(
+        file_path.relative_to(resource_path).as_posix()
+        for file_path in resource_path.rglob("*")
+        if file_path.is_file()
+        and not any(file_path.name.endswith(ending) for ending in ALLOWED_GENOME_BROWSER_FILE_ENDINGS)
+    )
+    assert not unexpected_files, (
+        f"Unexpected {resource_label} files with disallowed extensions in {resource_path}: "
+        f"{unexpected_files}"
+    )
+
+
+def _validate_required_genome_browser_extensions_present(base_path, relative_path, resource_label):
+    """Fail if any required extension from ALLOWED_GENOME_BROWSER_FILE_ENDINGS is absent."""
+    resource_path = Path(base_path) / relative_path
+    file_names = [file_path.name for file_path in resource_path.rglob("*") if file_path.is_file()]
+    present_endings = {
+        ending
+        for ending in ALLOWED_GENOME_BROWSER_FILE_ENDINGS
+        if any(name.endswith(ending) for name in file_names)
+    }
+    missing_endings = sorted(ALLOWED_GENOME_BROWSER_FILE_ENDINGS - present_endings)
+    assert not missing_endings, (
+        f"Missing {resource_label} required file extensions in {resource_path}: {missing_endings}"
+    )
+
 
 def _resolve_genome_browser_relative_path(base_path, release_name, genome_uuid):
     """Resolve genome browser path, allowing an optional one-level subdirectory under release."""
@@ -79,5 +122,15 @@ def check_genome_browser_files_expected_files(genomes, automation_resource_confi
         base_path=base_path,
         relative_path=relative_path,
         expected_files=expected_files,
+        resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
+    )
+    _validate_only_allowed_genome_browser_extensions(
+        base_path=base_path,
+        relative_path=relative_path,
+        resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
+    )
+    _validate_required_genome_browser_extensions_present(
+        base_path=base_path,
+        relative_path=relative_path,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )
