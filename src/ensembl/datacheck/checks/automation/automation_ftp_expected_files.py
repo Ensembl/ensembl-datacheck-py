@@ -23,6 +23,7 @@ Checks performed:
 
 """
 
+import logging
 
 import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
@@ -53,11 +54,15 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
         "Provide taxonomy DB URL (e.g. --taxonomy_database mysql+pymysql://user:pass@host/db)."
     )
 
-    ftp_paths = get_ftp_paths(
-        metadata_uri=metadata_db_uri,
-        taxonomy_uri=taxonomy_db_uri,
-        genome_uuid=genomes["genome_uuid"],
-    )
+    get_ftp_paths_kwargs = {
+        "metadata_uri": metadata_db_uri,
+        "taxonomy_uri": taxonomy_db_uri,
+        "genome_uuid": genomes["genome_uuid"],
+    }
+    if dataset_name.startswith("vep"):
+        get_ftp_paths_kwargs["dataset_name"] = dataset_name
+
+    ftp_paths = get_ftp_paths(**get_ftp_paths_kwargs)
     if isinstance(ftp_paths, dict):
         ftp_paths_by_dataset = ftp_paths
     else:
@@ -108,7 +113,7 @@ def check_ftp_dumps_homology_expected_files(user_cli, genomes, automation_resour
 @pytest.mark.automation_resource("ftp_dumps_vep_geneset")
 def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_geneset."""
-    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'genebuild')
+    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'vep_gff_location')
 
 
 @pytest.mark.automation_resource("all")
@@ -116,4 +121,5 @@ def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_res
 @pytest.mark.automation_resource("ftp_dumps_vep_genome")
 def check_ftp_dumps_vep_genome_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_genome."""
-    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'assembly')
+    logging.info("Starting check for ftp_dumps_vep_genome expected files for genome_uuid=%s", genomes['genome_uuid'])
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'vep_faa_location')
