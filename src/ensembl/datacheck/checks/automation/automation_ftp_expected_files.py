@@ -23,6 +23,7 @@ Checks performed:
 
 """
 
+import logging
 
 import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
@@ -44,12 +45,40 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
 
     metadata_db_uri = user_cli.getoption("--database")
     taxonomy_db_uri = user_cli.getoption("--taxonomy_database")
+    assert metadata_db_uri, (
+        "Missing --database for FTP automation checks. "
+        "Provide metadata DB URL (e.g. --database mysql+pymysql://user:pass@host/db)."
+    )
+    assert taxonomy_db_uri, (
+        "Missing --taxonomy_database for FTP automation checks. "
+        "Provide taxonomy DB URL (e.g. --taxonomy_database mysql+pymysql://user:pass@host/db)."
+    )
 
-    ftp_paths = get_ftp_paths(metadata_uri=metadata_db_uri, taxonomy_uri=taxonomy_db_uri, genome_uuid=genomes['genome_uuid'])
+    get_ftp_paths_kwargs = {
+        "metadata_uri": metadata_db_uri,
+        "taxonomy_uri": taxonomy_db_uri,
+        "genome_uuid": genomes["genome_uuid"],
+    }
+    if dataset_name.startswith("vep"):
+        get_ftp_paths_kwargs["dataset_name"] = dataset_name
+
+    ftp_paths = get_ftp_paths(**get_ftp_paths_kwargs)
+    if isinstance(ftp_paths, dict):
+        ftp_paths_by_dataset = ftp_paths
+    else:
+        ftp_paths_by_dataset = {
+            item["dataset_type"]: item["path"]
+            for item in ftp_paths
+            if isinstance(item, dict) and "dataset_type" in item and "path" in item
+        }
+    assert dataset_name in ftp_paths_by_dataset, (
+        f"Dataset type '{dataset_name}' not found in metadata public paths for "
+        f"genome_uuid={genomes['genome_uuid']}. Available: {sorted(ftp_paths_by_dataset)}"
+    )
 
     validate_expected_files(
         base_path=base_path,
-        relative_path=ftp_paths[dataset_name],
+        relative_path=ftp_paths_by_dataset[dataset_name],
         expected_files=expected_files,
         resource_label=f"{resource_key} (genome_uuid={genomes['genome_uuid']})",
     )
@@ -60,7 +89,7 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
 @pytest.mark.automation_resource("ftp_dumps_geneset")
 def check_ftp_dumps_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_geneset."""
-    _check_ftp_resource(genomes, automation_resource_config, "ftp_dumps_geneset", 'genebuild')
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_geneset", 'genebuild')
 
 
 @pytest.mark.automation_resource("all")
@@ -84,7 +113,7 @@ def check_ftp_dumps_homology_expected_files(user_cli, genomes, automation_resour
 @pytest.mark.automation_resource("ftp_dumps_vep_geneset")
 def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_geneset."""
-    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'genebuild')
+    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'vep_gff_location')
 
 
 @pytest.mark.automation_resource("all")
@@ -92,4 +121,5 @@ def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_res
 @pytest.mark.automation_resource("ftp_dumps_vep_genome")
 def check_ftp_dumps_vep_genome_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_genome."""
-    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'genebuild')
+    logging.info("Starting check for ftp_dumps_vep_genome expected files for genome_uuid=%s", genomes['genome_uuid'])
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'vep_faa_location')

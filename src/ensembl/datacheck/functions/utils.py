@@ -51,6 +51,15 @@ class EnsemblDatacheckWarning(UserWarning):
         return f"Warning::{self.file_name}::{self.function_name}: {self.message}"
 
 
+def _normalise_filter_values(values):
+    """Return metadata API filter values from comma-separated strings or iterables."""
+    if not values:
+        return None
+    if isinstance(values, str):
+        return [value.strip() for value in values.split(",") if value.strip()]
+    return list(values)
+
+
 def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=None):
     """
     Fetch genome UUIDs from database based on release_name or explicit UUID list.
@@ -64,7 +73,8 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
         pandas.DataFrame: dataframe with genome metadata including uuid
 
     """
-    release_name = release_name.split(',') if release_name else None
+    release_name = _normalise_filter_values(release_name)
+    genome_uuids = _normalise_filter_values(genome_uuids)
     genomes_iter = GenomeFactory().get_genomes(
                 metadata_db_uri=db_url,
                 genome_uuid=genome_uuids,

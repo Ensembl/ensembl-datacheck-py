@@ -85,6 +85,29 @@ def automation_resource_config(request):
 
 
 @pytest.fixture(scope="session")
+def track_api_resource(request, automation_resource_config):
+    """
+    Return a Track API base URI for the parametrized resource type.
+    """
+    resource_type = getattr(request, "param", None)
+    if not resource_type:
+        raise ValueError("Please parametrize the track_api_resource fixture with a resource type")
+
+    resource = automation_resource_config.get(resource_type)
+    if not resource:
+        pytest.skip(f"Resource '{resource_type}' not found in config file")
+
+    if resource.get("ignore") == "True":
+        pytest.skip(f"Skipped '{resource_type}' check as ignore=True in config")
+
+    uri = resource.get("uri")
+    if not uri:
+        pytest.skip(f"Track API URI missing for '{resource_type}'")
+
+    return uri
+
+
+@pytest.fixture(scope="session")
 def mongo_client(request, automation_resource_config):
     """
     Returns a MongoClient for a specific resource type.
@@ -112,4 +135,3 @@ def mongo_client(request, automation_resource_config):
 
     # Cleanup
     client.close()
-

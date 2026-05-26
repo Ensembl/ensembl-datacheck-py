@@ -22,15 +22,22 @@ The module ensures that all specified files, including those that match
 wildcard patterns, are present in the specified directory. If any files are
 missing, an assertion is raised indicating the missing files.
 """
-
-
+import logging
 from pathlib import Path
 from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
+from ensembl.production.metadata.api.adaptors.vep import  VepAdaptor
 
-def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid) :
+def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None ) :
     """
     Prepare FTP relative paths for the given genome uuid from metadata.
     """
+
+    if dataset_name and dataset_name.startswith("vep") :
+        file_type = dataset_name.split("_", maxsplit=1)[-1] # vep_faa_location is split into ["vep", "faa_location"] and fetch faa_location
+        file_location = VepAdaptor(metadata_uri, file=file_type).fetch_vep_locations(genome_uuid)
+        if isinstance(file_location, dict):
+            file_location = file_location[file_type]
+        return {dataset_name: file_location}
     return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
 
 def validate_expected_files(base_path, relative_path, expected_files, resource_label):

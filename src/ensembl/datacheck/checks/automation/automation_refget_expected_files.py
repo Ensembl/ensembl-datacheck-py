@@ -25,6 +25,50 @@ from pathlib import Path
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
 
 
+def _validate_only_expected_refget_files(base_path, relative_path, expected_files, resource_label):
+    """Fail if any file other than expected_files exists under the resolved refget path."""
+    resource_path = Path(base_path) / relative_path
+
+    expected_set = {Path(path).as_posix() for path in expected_files}
+    actual_set = {
+        file_path.relative_to(resource_path).as_posix()
+        for file_path in resource_path.rglob("*")
+        if file_path.is_file()
+    }
+
+    unexpected_files = sorted(actual_set - expected_set)
+    assert not unexpected_files, (
+        f"Unexpected {resource_label} files in {resource_path}: {unexpected_files}"
+    )
+
+
+def _resolve_refget_relative_path(base_path, release_name, genome_uuid):
+    """Resolve refget path, allowing an optional one-level subdirectory under release."""
+    base = Path(base_path)
+    release_root_relative = Path(f"release_{release_name}")
+    release_root = base / release_root_relative
+    assert release_root.is_dir(), f"Release directory does not exist: {release_root}"
+
+    direct_relative = release_root_relative / genome_uuid
+    if (base / direct_relative).is_dir():
+        return direct_relative
+
+    nested_candidates = sorted(
+        candidate.relative_to(base)
+        for candidate in release_root.glob(f"*/{genome_uuid}")
+        if candidate.is_dir()
+    )
+    assert nested_candidates, (
+        f"refget path does not exist for genome_uuid={genome_uuid} "
+        f"under {release_root} (checked direct and one-level nested directories)"
+    )
+    assert len(nested_candidates) == 1, (
+        f"Multiple refget directories found for genome_uuid={genome_uuid}: "
+        f"{[str(path) for path in nested_candidates]}"
+    )
+    return nested_candidates[0]
+
+
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("refget")
 def check_refget_expected_files(genomes, automation_resource_config):
@@ -41,10 +85,21 @@ def check_refget_expected_files(genomes, automation_resource_config):
     genome_uuid = genomes["genome_uuid"]
     release_name = genomes.get("release_name")
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
+    relative_path = _resolve_refget_relative_path(
+        base_path=base_path,
+        release_name=release_name,
+        genome_uuid=genome_uuid,
+    )
 
     validate_expected_files(
         base_path=base_path,
-        relative_path=Path(f"release_{release_name}") / genome_uuid,
+        relative_path=relative_path,
+        expected_files=expected_files,
+        resource_label=f"refget (release={release_name}, genome_uuid={genome_uuid})",
+    )
+    _validate_only_expected_refget_files(
+        base_path=base_path,
+        relative_path=relative_path,
         expected_files=expected_files,
         resource_label=f"refget (release={release_name}, genome_uuid={genome_uuid})",
     )

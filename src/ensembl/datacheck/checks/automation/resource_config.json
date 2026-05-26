@@ -63,6 +63,14 @@
           "ignore": "True",
           "uri": ""
         },
+        "track_api_stage": {
+            "ignore": "True",
+            "uri": ""
+        },
+        "track_api_prod": {
+            "ignore": "True",
+            "uri": ""
+        },
         "compara_dev": {
           "ignore": "True",
           "uri": ""
