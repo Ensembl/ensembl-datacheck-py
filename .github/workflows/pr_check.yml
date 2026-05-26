@@ -31,4 +31,5 @@ jobs:
       - name: Run Utils checks
         run: |
           pip install .
+          pip install .[automation]
           pytest --rootdir=./tests ./tests/
