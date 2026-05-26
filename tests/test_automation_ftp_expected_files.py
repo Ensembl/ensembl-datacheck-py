@@ -18,6 +18,7 @@
 import pytest
 
 from ensembl.datacheck.checks.automation import automation_ftp_expected_files as ftp_checks
+from ensembl.datacheck.checks.automation.utils import validate_expected_files
 
 
 class _DummyCli:
@@ -89,4 +90,32 @@ def test_check_ftp_resource_fails_with_clear_message_when_dataset_missing(monkey
             },
             resource_key="ftp_dumps_genomes",
             dataset_name="assembly",
+        )
+
+
+def test_validate_expected_files_accepts_file_relative_path_with_sidecar(tmp_path):
+    resource_dir = tmp_path / "Senecio_sylvaticus" / "GCA_965199645.1" / "vep" / "ensembl" / "geneset" / "2026_02"
+    resource_dir.mkdir(parents=True)
+    (resource_dir / "genes.gff3.bgz").write_text("")
+    (resource_dir / "genes.gff3.bgz.csi").write_text("")
+
+    validate_expected_files(
+        base_path=tmp_path,
+        relative_path="Senecio_sylvaticus/GCA_965199645.1/vep/ensembl/geneset/2026_02/genes.gff3.bgz",
+        expected_files=["genes.gff3.bgz", "genes.gff3.bgz.csi"],
+        resource_label="ftp_dumps_vep_geneset",
+    )
+
+
+def test_validate_expected_files_reports_missing_sidecar_for_file_relative_path(tmp_path):
+    resource_dir = tmp_path / "Senecio_sylvaticus" / "GCA_965199645.1" / "vep" / "ensembl" / "geneset" / "2026_02"
+    resource_dir.mkdir(parents=True)
+    (resource_dir / "genes.gff3.bgz").write_text("")
+
+    with pytest.raises(AssertionError, match="genes.gff3.bgz.csi"):
+        validate_expected_files(
+            base_path=tmp_path,
+            relative_path="Senecio_sylvaticus/GCA_965199645.1/vep/ensembl/geneset/2026_02/genes.gff3.bgz",
+            expected_files=["genes.gff3.bgz", "genes.gff3.bgz.csi"],
+            resource_label="ftp_dumps_vep_geneset",
         )
