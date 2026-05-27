@@ -45,15 +45,17 @@ def validate_expected_files(base_path, relative_path, expected_files, resource_l
     resource_path = Path(base_path) / relative_path
     assert resource_path.exists(), f"{resource_label} path does not exist: {resource_path}"
 
+    search_path = resource_path.parent if resource_path.is_file() else resource_path
+
     missing_files = []
     for expected_file in expected_files:
-        expected_path = resource_path / expected_file
+        expected_path = search_path / expected_file
         if any(char in expected_file for char in "*?[]"):
-            if not list(resource_path.glob(expected_file)):
+            if not list(search_path.glob(expected_file)):
                 missing_files.append(expected_file)
         elif not expected_path.exists():
             missing_files.append(expected_file)
 
     assert not missing_files, (
-        f"Missing {resource_label} files in {resource_path}: {missing_files}"
+        f"Missing {resource_label} files in {search_path}: {missing_files}"
     )
