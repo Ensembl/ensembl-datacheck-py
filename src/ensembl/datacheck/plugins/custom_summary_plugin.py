@@ -91,14 +91,14 @@ class CustomSummaryPlugin:
             longreprtext = str(report.longrepr)
 
         assertion_message = None
-        for line in longreprtext.splitlines():
-            if "AssertionError" in line:
-                line = line.split("AssertionError: ")[1]
-                assertion_message = line
+        longrepr_lines = longreprtext.splitlines()
+        for line in longrepr_lines:
+            if "AssertionError: " in line:
+                assertion_message = line.split("AssertionError: ", 1)[1]
                 break
 
         if assertion_message is None:
-            assertion_message = longreprtext
+            assertion_message = longrepr_lines[0] if longrepr_lines else ""
 
         return f"FAILED::{test_name}::{assertion_message}"
 
