@@ -80,6 +80,15 @@ def _parse_params(raw_params):
     return parsed_params
 
 
+def _configure_json_report_defaults(config):
+    """Apply ensembl-datacheck defaults for pytest-json-report."""
+    if not getattr(config.option, "json_report", False):
+        return
+
+    if getattr(config.option, "json_report_indent", None) is None:
+        config.option.json_report_indent = 2
+
+
 def pytest_addoption(parser):
     """
     Adds command-line options to pytest.
@@ -256,6 +265,7 @@ def pytest_configure(config):
 
     # Parse and validate key-value parameters
     config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
+    _configure_json_report_defaults(config)
 
     _ensure_ini_value(config, "python_files", "*.py")
     _ensure_ini_value(config, "python_classes", "*")

@@ -72,6 +72,9 @@ ensembl-datacheck \
   --json-report-file db_files.json
 ```
 
+JSON reports are written with two-space indentation by default. Override with
+`--json-report-indent <n>` if needed.
+
 ## Notes
 
 - `--test=automation` runs every `*.py` module in this directory (excluding `conftest.py`).
