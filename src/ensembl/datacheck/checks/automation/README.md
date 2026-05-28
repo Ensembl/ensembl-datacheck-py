@@ -39,6 +39,7 @@ COMMON_ARGS="${COMMON_ARGS} --release_name ${RELEASE_NAME} --genome_uuid ${GENOM
 ```bash
 ensembl-datacheck --test=automation/automation_blast_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_blast_database_files_expected_files ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_blast_database_release ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_compara_mongo_load ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_ftp_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_genesearch_expected_file ${COMMON_ARGS}
@@ -56,4 +57,6 @@ ensembl-datacheck --test=automation ${COMMON_ARGS}
 ## Notes
 
 - `--test=automation` runs every `*.py` module in this directory (excluding `conftest.py`).
+- `automation_blast_database_release` defaults to `/nfs/production/flicek/ensembl/production/blastdb`.
+  Override it with `--params base_dir=/path/to/blastdb`.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).
