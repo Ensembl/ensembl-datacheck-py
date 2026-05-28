@@ -38,6 +38,7 @@ COMMON_ARGS="${COMMON_ARGS} --release_name ${RELEASE_NAME} --genome_uuid ${GENOM
 
 ```bash
 ensembl-datacheck --test=automation/automation_blast_expected_files ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_blast_database_files_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_compara_mongo_load ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_ftp_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_genesearch_expected_file ${COMMON_ARGS}
