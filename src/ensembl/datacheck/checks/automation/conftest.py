@@ -49,7 +49,7 @@ def _resolve_automation_resource_config_path(config):
     return config_path
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def user_cli(request):
     """
     Fixture for user CLI configuration.
