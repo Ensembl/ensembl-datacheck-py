@@ -17,6 +17,7 @@ import pathlib
 from collections import defaultdict
 import pytest
 import os
+import re
 import warnings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -403,18 +404,94 @@ def pytest_json_runtest_metadata(item, call):
 
 
 def _get_json_report_error_info(test):
-    """Return the fullest available error text for a pytest-json-report test."""
+    """Return the shortest useful error text for a pytest-json-report test."""
     for phase_name in ("call", "setup", "teardown"):
         phase_report = test.get(phase_name, {})
-        longrepr = phase_report.get("longrepr")
-        if longrepr:
-            return longrepr
-
         crash = phase_report.get("crash")
         if crash:
-            return crash
+            message = crash.get("message")
+            if message:
+                return message.removeprefix("AssertionError: ")
+
+        assertion_lines = _get_assertion_message_lines(
+            phase_report.get("longrepr")
+        )
+        if assertion_lines:
+            return assertion_lines[0]
 
     return None
+
+
+def _clean_pytest_error_line(line):
+    """Remove pytest's leading error marker from an error output line."""
+    stripped_line = line.strip()
+    if (
+        len(stripped_line) > 1
+        and stripped_line[0] == "E"
+        and stripped_line[1].isspace()
+    ):
+        return stripped_line[1:].lstrip(), True
+    return stripped_line, False
+
+
+def _get_assertion_message_lines(longrepr):
+    """Extract only the AssertionError message body from pytest longrepr text."""
+    if not longrepr:
+        return []
+
+    assertion_lines = []
+    assertion_uses_error_lines = False
+    for line in str(longrepr).splitlines():
+        cleaned_line, is_error_line = _clean_pytest_error_line(line)
+        if not assertion_lines:
+            if cleaned_line.startswith("AssertionError: "):
+                assertion_uses_error_lines = is_error_line
+                assertion_lines.append(
+                    cleaned_line.removeprefix("AssertionError: ")
+                )
+            continue
+
+        if assertion_uses_error_lines and not is_error_line:
+            break
+        if not assertion_uses_error_lines and not cleaned_line:
+            break
+        assertion_lines.append(cleaned_line)
+
+    return assertion_lines
+
+
+def _get_json_report_failure_details(test):
+    """Return structured datacheck assertion details when available."""
+    for phase_name in ("call", "setup", "teardown"):
+        assertion_lines = _get_assertion_message_lines(
+            test.get(phase_name, {}).get("longrepr")
+        )
+        details = _parse_datacheck_assertion_details(assertion_lines)
+        if details:
+            return details
+
+    return None
+
+
+def _parse_datacheck_assertion_details(assertion_lines):
+    """Parse datacheck discrepancy assertions into structured JSON fields."""
+    if not assertion_lines or "Full list:" not in assertion_lines:
+        return None
+
+    header_match = re.match(
+        r"^(?P<label>.+): (?P<count>\d+)\. Release path: (?P<release_path>.+)$",
+        assertion_lines[0],
+    )
+    if not header_match:
+        return None
+
+    full_list_index = assertion_lines.index("Full list:")
+    return {
+        "label": header_match.group("label"),
+        "count": int(header_match.group("count")),
+        "release_path": header_match.group("release_path"),
+        "items": assertion_lines[full_list_index + 1:],
+    }
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -444,7 +521,11 @@ def pytest_json_modifyreport(json_report):
         test_name = test["nodeid"].split("::")[-1]  #.split("[")[0]
 
         error_info = _get_json_report_error_info(test)
-        genomes[genome_uuid][test_name] = {"status": test["outcome"], "error": error_info}
+        result = {"status": test["outcome"], "error": error_info}
+        failure_details = _get_json_report_failure_details(test)
+        if failure_details:
+            result["details"] = failure_details
+        genomes[genome_uuid][test_name] = result
 
     # delete the existing result format and replace with the new one grouped by genome_uuid
     json_report.pop("tests", "Not found `test` key in json report")
