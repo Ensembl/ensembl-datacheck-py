@@ -32,6 +32,23 @@ from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
 
 
+def _resolve_automation_resource_config_path(config):
+    """Resolve automation resource config from CLI override or bundled default."""
+    bundled_config_path = pathlib.Path(__file__).with_name("resource_config.json")
+    if not config:
+        return bundled_config_path
+
+    config_path = pathlib.Path(config).expanduser()
+    if config_path.is_file():
+        return config_path
+
+    # Support historical docs that passed src/.../resource_config.json from any cwd.
+    if config_path.name == "resource_config.json":
+        return bundled_config_path
+
+    return config_path
+
+
 @pytest.fixture
 def user_cli(request):
     """
@@ -75,11 +92,7 @@ def automation_resource_config(request):
 
     """
     config = request.config.getoption("--automation_resource_config")
-    config_path = (
-        pathlib.Path(config).expanduser()
-        if config
-        else pathlib.Path(__file__).with_name("resource_config.json")
-    )
+    config_path = _resolve_automation_resource_config_path(config)
 
     if not config_path.is_file():
         raise ValueError(f"Config file not found at {config_path}")

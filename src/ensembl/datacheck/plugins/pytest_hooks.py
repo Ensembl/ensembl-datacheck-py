@@ -260,6 +260,16 @@ def pytest_configure(config):
     _ensure_ini_value(config, "python_files", "*.py")
     _ensure_ini_value(config, "python_classes", "*")
     _ensure_ini_value(config, "python_functions", "check_*")
+    _ensure_ini_value(
+        config,
+        "filterwarnings",
+        "ignore::pytest.PytestCollectionWarning",
+    )
+    _ensure_ini_value(
+        config,
+        "filterwarnings",
+        "ignore::sqlalchemy.exc.MovedIn20Warning",
+    )
 
     # Handle warning options
     if not config.getoption("--native-output"):
