@@ -17,9 +17,11 @@
 Check that a BLAST database release contains every live genome and expected file.
 Checks performed:
     - Use ensembl-metadata-api search utils to get live genome UUIDs.
-    - Validate that each genome directory exists under <uuid[:3]>/<uuid>.
-    - Validate that each expected BLAST database file exists for every genome.
-    - Validate that manifest paths match the expected genome file locations.
+    - Validate missing genomes.
+    - Validate missing files.
+    - Validate extra files.
+    - Validate missing manifest entries.
+    - Validate extra manifest entries.
 """
 
 from pathlib import Path
@@ -176,48 +178,8 @@ def _actual_release_file_paths(release_path):
     }
 
 
-def _assert_blast_database_release_is_complete(release_path, genome_uuids, expected_files):
-    """Validate filesystem and manifest contents for a BLAST database release."""
-    expected_file_paths = _expected_relative_file_paths(genome_uuids, expected_files)
-    actual_file_paths = _actual_release_file_paths(release_path)
-    manifest_file_paths, malformed_manifest_lines = _read_manifest_file_paths(
-        release_path / "manifest"
-    )
-
-    missing_genomes = sorted(
-        genome_uuid
-        for genome_uuid in genome_uuids
-        if not (release_path / genome_uuid[:3] / genome_uuid).is_dir()
-    )
-    missing_files = sorted(expected_file_paths - actual_file_paths)
-    extra_files = sorted(actual_file_paths - expected_file_paths)
-    missing_manifest_files = sorted(expected_file_paths - manifest_file_paths)
-    extra_manifest_files = sorted(manifest_file_paths - expected_file_paths)
-
-    failure_messages = []
-    if missing_genomes:
-        failure_messages.append(f"Missing genomes: {missing_genomes}")
-    if missing_files:
-        failure_messages.append(f"Missing files: {missing_files}")
-    if extra_files:
-        failure_messages.append(f"Extra files: {extra_files}")
-    if missing_manifest_files:
-        failure_messages.append(f"Missing manifest files: {missing_manifest_files}")
-    if extra_manifest_files:
-        failure_messages.append(f"Extra manifest files: {extra_manifest_files}")
-    if malformed_manifest_lines:
-        failure_messages.append(f"Malformed manifest lines: {malformed_manifest_lines}")
-
-    assert not failure_messages, (
-        f"BLAST database release validation failed for {release_path}:\n"
-        + "\n".join(failure_messages)
-    )
-
-
-@pytest.mark.automation_resource("all")
-@pytest.mark.automation_resource("blast_database_release")
-def check_blast_database_release(user_cli, db_session, automation_resource_config):
-    """Validate a complete BLAST database release directory."""
+def _get_blast_database_release_context(user_cli, db_session, automation_resource_config):
+    """Build shared BLAST database release validation context."""
     release_name = _getoption(
         user_cli,
         "--release_name",
@@ -234,9 +196,94 @@ def check_blast_database_release(user_cli, db_session, automation_resource_confi
     expected_files = _get_blast_database_release_expected_files(
         automation_resource_config
     )
+    expected_file_paths = _expected_relative_file_paths(genome_uuids, expected_files)
+    actual_file_paths = _actual_release_file_paths(release_path)
+    manifest_file_paths, malformed_manifest_lines = _read_manifest_file_paths(
+        release_path / "manifest"
+    )
 
-    _assert_blast_database_release_is_complete(
-        release_path=release_path,
-        genome_uuids=genome_uuids,
-        expected_files=expected_files,
+    return {
+        "release_path": release_path,
+        "genome_uuids": genome_uuids,
+        "expected_file_paths": expected_file_paths,
+        "actual_file_paths": actual_file_paths,
+        "manifest_file_paths": manifest_file_paths,
+        "malformed_manifest_lines": malformed_manifest_lines,
+    }
+
+
+@pytest.fixture(scope="session")
+def blast_database_release_context(user_cli, db_session, automation_resource_config):
+    """Build shared context for BLAST database release checks."""
+    return _get_blast_database_release_context(
+        user_cli=user_cli,
+        db_session=db_session,
+        automation_resource_config=automation_resource_config,
+    )
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("blast_database_release")
+def check_blast_database_release_missing_genomes(blast_database_release_context):
+    """Check that every expected genome directory is present."""
+    release_path = blast_database_release_context["release_path"]
+    genome_uuids = blast_database_release_context["genome_uuids"]
+
+    missing_genomes = sorted(
+        genome_uuid
+        for genome_uuid in genome_uuids
+        if not (release_path / genome_uuid[:3] / genome_uuid).is_dir()
+    )
+    assert not missing_genomes, f"Missing genomes: {missing_genomes}"
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("blast_database_release")
+def check_blast_database_release_missing_files(blast_database_release_context):
+    """Check that every expected BLAST database file is present."""
+    missing_files = sorted(
+        blast_database_release_context["expected_file_paths"]
+        - blast_database_release_context["actual_file_paths"]
+    )
+    assert not missing_files, f"Missing files: {missing_files}"
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("blast_database_release")
+def check_blast_database_release_extra_files(blast_database_release_context):
+    """Check that the release contains no unexpected BLAST database files."""
+    extra_files = sorted(
+        blast_database_release_context["actual_file_paths"]
+        - blast_database_release_context["expected_file_paths"]
+    )
+    assert not extra_files, f"Extra files: {extra_files}"
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("blast_database_release")
+def check_blast_database_release_missing_manifest_files(blast_database_release_context):
+    """Check that every expected BLAST database file is listed in manifest."""
+    assert not blast_database_release_context["malformed_manifest_lines"], (
+        f"Malformed manifest lines: "
+        f"{blast_database_release_context['malformed_manifest_lines']}"
+    )
+    missing_manifest_files = sorted(
+        blast_database_release_context["expected_file_paths"]
+        - blast_database_release_context["manifest_file_paths"]
+    )
+    assert not missing_manifest_files, (
+        f"Missing manifest files: {missing_manifest_files}"
+    )
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("blast_database_release")
+def check_blast_database_release_extra_manifest_files(blast_database_release_context):
+    """Check that manifest contains no unexpected BLAST database file paths."""
+    extra_manifest_files = sorted(
+        blast_database_release_context["manifest_file_paths"]
+        - blast_database_release_context["expected_file_paths"]
+    )
+    assert not extra_manifest_files, (
+        f"Extra manifest files: {extra_manifest_files}"
     )
