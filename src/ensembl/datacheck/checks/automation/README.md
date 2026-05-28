@@ -82,6 +82,6 @@ JSON reports are written with two-space indentation by default. Override with
   from the `blast_database_release` config.
   Override it with `--params base_dir=/path/to/blastdb`.
 - `automation_blast_database_release` failures start with a one-line count and
-  release path, followed by the full discrepancy list in native output and in
-  the JSON report error field.
+  release path. Native output includes the full discrepancy list inline. JSON
+  reports store the same full list under the failure's `details.items` field.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).
