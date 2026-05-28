@@ -49,7 +49,7 @@ def pytest_generate_tests(metafunc):
     """
     test = metafunc.config.getoption("test")
     # Only generate parameters per genome uuid for tests name that start with "automation"
-    if test.startswith("automation"):
+    if test.startswith("automation") and "genomes" in metafunc.fixturenames:
         db_url = metafunc.config.getoption("database")
         taxonomy_url = metafunc.config.getoption("taxonomy_database")
         release_name = metafunc.config.getoption("release_name")
