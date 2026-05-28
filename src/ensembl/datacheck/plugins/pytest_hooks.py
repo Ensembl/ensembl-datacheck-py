@@ -392,6 +392,21 @@ def pytest_json_runtest_metadata(item, call):
     return {'start': call.start, "tag": datacheck_tag, 'stop': call.stop}
 
 
+def _get_json_report_error_info(test):
+    """Return the fullest available error text for a pytest-json-report test."""
+    for phase_name in ("call", "setup", "teardown"):
+        phase_report = test.get(phase_name, {})
+        longrepr = phase_report.get("longrepr")
+        if longrepr:
+            return longrepr
+
+        crash = phase_report.get("crash")
+        if crash:
+            return crash
+
+    return None
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_json_modifyreport(json_report):
     """
@@ -418,7 +433,7 @@ def pytest_json_modifyreport(json_report):
 
         test_name = test["nodeid"].split("::")[-1]  #.split("[")[0]
 
-        error_info = test.get("call", {}).get("crash", None) or test.get("call", {}).get("longrepr", None)
+        error_info = _get_json_report_error_info(test)
         genomes[genome_uuid][test_name] = {"status": test["outcome"], "error": error_info}
 
     # delete the existing result format and replace with the new one grouped by genome_uuid

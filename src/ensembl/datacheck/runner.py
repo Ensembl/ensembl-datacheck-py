@@ -15,6 +15,7 @@
 import sys
 import pytest
 
+
 def main():
     """
     Main entry point for the script when using ensembl-datacheck.

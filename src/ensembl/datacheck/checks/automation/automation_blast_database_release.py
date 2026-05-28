@@ -178,6 +178,20 @@ def _actual_release_file_paths(release_path):
     }
 
 
+def _assert_no_discrepancies(label, release_path, items):
+    """Fail with a concise first line followed by the full discrepancy list."""
+    sorted_items = sorted(items)
+    if not sorted_items:
+        return
+
+    error_lines = [
+        f"{label}: {len(sorted_items)}. Release path: {release_path}",
+        "Full list:",
+        *sorted_items,
+    ]
+    raise AssertionError("\n".join(error_lines))
+
+
 def _get_blast_database_release_context(user_cli, db_session, automation_resource_config):
     """Build shared BLAST database release validation context."""
     release_name = _getoption(
@@ -234,45 +248,63 @@ def check_blast_database_release_missing_genomes(blast_database_release_context)
         for genome_uuid in genome_uuids
         if not (release_path / genome_uuid[:3] / genome_uuid).is_dir()
     )
-    assert not missing_genomes, f"Missing genomes: {missing_genomes}"
+    _assert_no_discrepancies(
+        label="Missing genomes",
+        release_path=release_path,
+        items=missing_genomes,
+    )
 
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("blast_database_release")
 def check_blast_database_release_missing_files(blast_database_release_context):
     """Check that every expected BLAST database file is present."""
+    release_path = blast_database_release_context["release_path"]
     missing_files = sorted(
         blast_database_release_context["expected_file_paths"]
         - blast_database_release_context["actual_file_paths"]
     )
-    assert not missing_files, f"Missing files: {missing_files}"
+    _assert_no_discrepancies(
+        label="Missing files",
+        release_path=release_path,
+        items=missing_files,
+    )
 
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("blast_database_release")
 def check_blast_database_release_extra_files(blast_database_release_context):
     """Check that the release contains no unexpected BLAST database files."""
+    release_path = blast_database_release_context["release_path"]
     extra_files = sorted(
         blast_database_release_context["actual_file_paths"]
         - blast_database_release_context["expected_file_paths"]
     )
-    assert not extra_files, f"Extra files: {extra_files}"
+    _assert_no_discrepancies(
+        label="Extra files",
+        release_path=release_path,
+        items=extra_files,
+    )
 
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("blast_database_release")
 def check_blast_database_release_missing_manifest_files(blast_database_release_context):
     """Check that every expected BLAST database file is listed in manifest."""
-    assert not blast_database_release_context["malformed_manifest_lines"], (
-        f"Malformed manifest lines: "
-        f"{blast_database_release_context['malformed_manifest_lines']}"
+    release_path = blast_database_release_context["release_path"]
+    _assert_no_discrepancies(
+        label="Malformed manifest lines",
+        release_path=release_path,
+        items=blast_database_release_context["malformed_manifest_lines"],
     )
     missing_manifest_files = sorted(
         blast_database_release_context["expected_file_paths"]
         - blast_database_release_context["manifest_file_paths"]
     )
-    assert not missing_manifest_files, (
-        f"Missing manifest files: {missing_manifest_files}"
+    _assert_no_discrepancies(
+        label="Missing manifest files",
+        release_path=release_path,
+        items=missing_manifest_files,
     )
 
 
@@ -280,10 +312,13 @@ def check_blast_database_release_missing_manifest_files(blast_database_release_c
 @pytest.mark.automation_resource("blast_database_release")
 def check_blast_database_release_extra_manifest_files(blast_database_release_context):
     """Check that manifest contains no unexpected BLAST database file paths."""
+    release_path = blast_database_release_context["release_path"]
     extra_manifest_files = sorted(
         blast_database_release_context["manifest_file_paths"]
         - blast_database_release_context["expected_file_paths"]
     )
-    assert not extra_manifest_files, (
-        f"Extra manifest files: {extra_manifest_files}"
+    _assert_no_discrepancies(
+        label="Extra manifest files",
+        release_path=release_path,
+        items=extra_manifest_files,
     )

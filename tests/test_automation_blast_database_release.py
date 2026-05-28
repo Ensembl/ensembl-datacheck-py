@@ -63,6 +63,24 @@ def _write_manifest(release_path, relative_paths):
     )
 
 
+def _assert_discrepancy_failure(
+    exc_info,
+    tmp_path,
+    label,
+    expected_item,
+    expected_count=1,
+):
+    error_message = str(exc_info.value)
+    error_lines = error_message.splitlines()
+
+    assert error_lines[0] == (
+        f"{label}: {expected_count}. Release path: {tmp_path / '2026_05'}"
+    )
+    assert error_lines[1] == "Full list:"
+    assert expected_item in error_message
+    assert not list(tmp_path.glob("blast_database_release_*.txt"))
+
+
 def test_get_blast_database_release_base_dir_defaults_to_nfs_path():
     assert blast_release._get_blast_database_release_base_dir(
         user_cli=_DummyCli({}),
@@ -164,8 +182,10 @@ def test_get_blast_database_release_context_builds_expected_context(monkeypatch,
 
 
 def test_check_blast_database_release_missing_genomes_reports_missing_genomes(
+    monkeypatch,
     tmp_path,
 ):
+    monkeypatch.chdir(tmp_path)
     release_path = tmp_path / "2026_05"
     release_path.mkdir()
     missing_genome_uuid = "abc3e543-fe3d-4cc5-beea-02d2bfaa90f4"
@@ -176,75 +196,121 @@ def test_check_blast_database_release_missing_genomes_reports_missing_genomes(
             "genome_uuids": [missing_genome_uuid],
         })
 
-    error_message = str(exc_info.value)
-    assert "Missing genomes" in error_message
-    assert missing_genome_uuid in error_message
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Missing genomes",
+        expected_item=missing_genome_uuid,
+    )
 
 
-def test_check_blast_database_release_missing_files_reports_missing_files():
+def test_check_blast_database_release_missing_files_reports_missing_files(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    missing_file = "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr"
+
     with pytest.raises(AssertionError) as exc_info:
         blast_release.check_blast_database_release_missing_files({
-            "expected_file_paths": {
-                "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr",
-            },
+            "release_path": tmp_path / "2026_05",
+            "expected_file_paths": {missing_file},
             "actual_file_paths": set(),
         })
 
-    error_message = str(exc_info.value)
-    assert "Missing files" in error_message
-    assert (
-        "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr"
-        in error_message
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Missing files",
+        expected_item=missing_file,
     )
 
 
-def test_check_blast_database_release_extra_files_reports_extra_files():
+def test_check_blast_database_release_extra_files_reports_extra_files(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    extra_file = "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr"
+
     with pytest.raises(AssertionError) as exc_info:
         blast_release.check_blast_database_release_extra_files({
+            "release_path": tmp_path / "2026_05",
             "expected_file_paths": set(),
-            "actual_file_paths": {
-                "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr",
-            },
+            "actual_file_paths": {extra_file},
         })
 
-    error_message = str(exc_info.value)
-    assert "Extra files" in error_message
-    assert (
-        "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr"
-        in error_message
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Extra files",
+        expected_item=extra_file,
     )
 
 
-def test_check_blast_database_release_missing_manifest_files_reports_missing_entries():
+def test_check_blast_database_release_missing_manifest_files_reports_missing_entries(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    missing_file = "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr"
+
     with pytest.raises(AssertionError) as exc_info:
         blast_release.check_blast_database_release_missing_manifest_files({
-            "expected_file_paths": {
-                "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr",
-            },
+            "release_path": tmp_path / "2026_05",
+            "expected_file_paths": {missing_file},
             "manifest_file_paths": set(),
             "malformed_manifest_lines": [],
         })
 
-    error_message = str(exc_info.value)
-    assert "Missing manifest files" in error_message
-    assert (
-        "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr"
-        in error_message
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Missing manifest files",
+        expected_item=missing_file,
     )
 
 
-def test_check_blast_database_release_extra_manifest_files_reports_extra_entries():
+def test_check_blast_database_release_missing_manifest_files_reports_malformed_lines(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    malformed_line = "12: missing_path_column"
+
     with pytest.raises(AssertionError) as exc_info:
-        blast_release.check_blast_database_release_extra_manifest_files({
+        blast_release.check_blast_database_release_missing_manifest_files({
+            "release_path": tmp_path / "2026_05",
             "expected_file_paths": set(),
-            "manifest_file_paths": {
-                "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr",
-            },
+            "manifest_file_paths": set(),
+            "malformed_manifest_lines": [malformed_line],
         })
 
-    error_message = str(exc_info.value)
-    assert "Extra manifest files" in error_message
-    assert (
-        "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr"
-        in error_message
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Malformed manifest lines",
+        expected_item=malformed_line,
+    )
+
+
+def test_check_blast_database_release_extra_manifest_files_reports_extra_entries(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    extra_file = "000/0003e543-fe3d-4cc5-beea-02d2bfaa90f4/extra.nhr"
+
+    with pytest.raises(AssertionError) as exc_info:
+        blast_release.check_blast_database_release_extra_manifest_files({
+            "release_path": tmp_path / "2026_05",
+            "expected_file_paths": set(),
+            "manifest_file_paths": {extra_file},
+        })
+
+    _assert_discrepancy_failure(
+        exc_info=exc_info,
+        tmp_path=tmp_path,
+        label="Extra manifest files",
+        expected_item=extra_file,
     )
