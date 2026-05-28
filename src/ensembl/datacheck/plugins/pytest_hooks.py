@@ -30,6 +30,12 @@ import json
 PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
 
 
+def _ensure_ini_value(config, name, value):
+    """Ensure pytest collection config from pyproject is also active from other rootdirs."""
+    if value not in config.getini(name):
+        config.addinivalue_line(name, value)
+
+
 def _parse_params(raw_params):
     """
     Parse key-value command-line parameters into a dictionary.
@@ -251,6 +257,10 @@ def pytest_configure(config):
     # Parse and validate key-value parameters
     config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
 
+    _ensure_ini_value(config, "python_files", "*.py")
+    _ensure_ini_value(config, "python_classes", "*")
+    _ensure_ini_value(config, "python_functions", "check_*")
+
     # Handle warning options
     if not config.getoption("--native-output"):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
@@ -348,6 +358,7 @@ def pytest_collection_modifyitems(items, config):
             item.genome_uuid = genome["genome_uuid"]
 
 
+@pytest.hookimpl(optionalhook=True)
 def pytest_json_runtest_metadata(item, call):
     """
     Adds custom metadata to the JSON report for each test item.
@@ -371,6 +382,7 @@ def pytest_json_runtest_metadata(item, call):
     return {'start': call.start, "tag": datacheck_tag, 'stop': call.stop}
 
 
+@pytest.hookimpl(optionalhook=True)
 def pytest_json_modifyreport(json_report):
     """
     Modifies the JSON report to group test results by genome UUID and include error information.

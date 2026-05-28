@@ -15,9 +15,14 @@ python -m pip install -e ".[automation]"
 Set required inputs:
 
 ```bash
-export AUTOMATION_CONFIG="src/ensembl/datacheck/checks/automation/resource_config.json"
 export METADATA_DB_URL="mysql+pymysql://<user>:<pass>@<host>/<db>"
 export TAXONOMY_DB_URL="mysql+pymysql://<user>:<pass>@<host>/<db>"
+```
+
+Optional config override:
+
+```bash
+export AUTOMATION_CONFIG="src/ensembl/datacheck/checks/automation/resource_config.json"
 ```
 
 Optional filters (recommended to narrow scope):
@@ -30,7 +35,8 @@ export GENOME_UUID="<genome_uuid>"
 Build shared CLI args:
 
 ```bash
-COMMON_ARGS="--database ${METADATA_DB_URL} --taxonomy_database ${TAXONOMY_DB_URL} --automation_resource_config ${AUTOMATION_CONFIG}"
+COMMON_ARGS="--database ${METADATA_DB_URL} --taxonomy_database ${TAXONOMY_DB_URL}"
+[ -n "${AUTOMATION_CONFIG}" ] && COMMON_ARGS="${COMMON_ARGS} --automation_resource_config ${AUTOMATION_CONFIG}"
 [ -n "${RELEASE_NAME}" ] && COMMON_ARGS="${COMMON_ARGS} --release_name ${RELEASE_NAME}"
 [ -n "${GENOME_UUID}" ] && COMMON_ARGS="${COMMON_ARGS} --genome_uuid ${GENOME_UUID}"
 ```

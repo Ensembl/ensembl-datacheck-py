@@ -15,9 +15,12 @@
 
 
 """
-Check that all required metakeys from the metadata database are present in the core database and have non-empty values.
+Check that all required metakeys from the metadata database are present in the core database
+and have non-empty values.
 Checks performed:
-    - Fixture For Automation Resource Config: Loads automation resource configuration from a JSON file specified via command-line option.
+    - Fixture For Automation Resource Config: Loads automation resource configuration from
+      a JSON file specified via command-line option, or from the bundled
+      resource_config.json by default.
 """
 
 import pytest
@@ -66,17 +69,17 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture(scope="session")
 def automation_resource_config(request):
     """
-    Pytest fixture to load automation resource configuration from the database.
+    Pytest fixture to load automation resource configuration.
     Args:
         request (pytest.FixtureRequest): The fixture request object.
 
     """
     config = request.config.getoption("--automation_resource_config")
-    if not config:
-        raise ValueError(
-            "Please provide the path to the automation resource config file using --automation_resource_config")
-
-    config_path = pathlib.Path(config)
+    config_path = (
+        pathlib.Path(config).expanduser()
+        if config
+        else pathlib.Path(__file__).with_name("resource_config.json")
+    )
 
     if not config_path.is_file():
         raise ValueError(f"Config file not found at {config_path}")
