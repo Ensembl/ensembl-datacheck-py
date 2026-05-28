@@ -30,29 +30,6 @@ DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR = (
     "/nfs/production/flicek/ensembl/production/blastdb"
 )
 
-BLAST_DATABASE_EXPECTED_FILES = [
-    "cdna.nhr",
-    "cds.nhr",
-    "pep.phr",
-    "softmasked.nhr",
-    "unmasked.nhr",
-    "cdna.nin",
-    "cds.nin",
-    "pep.pin",
-    "softmasked.nin",
-    "unmasked.nin",
-    "cdna.njs",
-    "cds.njs",
-    "pep.pjs",
-    "softmasked.njs",
-    "unmasked.njs",
-    "cdna.nsq",
-    "cds.nsq",
-    "pep.psq",
-    "softmasked.nsq",
-    "unmasked.nsq",
-]
-
 
 def _getoption(user_cli, name, default=None):
     """Return a pytest config option, tolerating lightweight test doubles."""
@@ -78,16 +55,37 @@ def _parse_key_value_params(raw_params):
     return parsed_params
 
 
-def _get_blast_database_release_base_dir(user_cli):
-    """Resolve the BLAST database release base directory from --params or default."""
+def _get_blast_database_release_config(automation_resource_config):
+    """Return blast_database_release config, failing clearly when absent."""
+    release_config = automation_resource_config.get("blast_database_release")
+    assert release_config is not None, (
+        "Missing 'blast_database_release' section in automation resource config."
+    )
+    return release_config
+
+
+def _get_blast_database_release_base_dir(user_cli, automation_resource_config):
+    """Resolve base directory from --params, config, or default."""
     params = _parse_key_value_params(
         _getoption(user_cli, "--params", _getoption(user_cli, "params", []))
     )
+    release_config = _get_blast_database_release_config(automation_resource_config)
     return (
         params.get("blast_database_release_base_dir")
         or params.get("base_dir")
+        or release_config.get("base_path")
         or DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR
     )
+
+
+def _get_blast_database_release_expected_files(automation_resource_config):
+    """Resolve expected BLAST database release files from config."""
+    release_config = _get_blast_database_release_config(automation_resource_config)
+    expected_files = release_config.get("expected_files", [])
+    assert expected_files, (
+        "Missing blast_database_release.expected_files in automation resource config."
+    )
+    return expected_files
 
 
 def _resolve_release_path(base_dir, release_name):
@@ -218,7 +216,7 @@ def _assert_blast_database_release_is_complete(release_path, genome_uuids, expec
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("blast_database_release")
-def check_blast_database_release(user_cli, db_session):
+def check_blast_database_release(user_cli, db_session, automation_resource_config):
     """Validate a complete BLAST database release directory."""
     release_name = _getoption(
         user_cli,
@@ -227,12 +225,18 @@ def check_blast_database_release(user_cli, db_session):
     )
     assert release_name, "Missing --release_name for blast_database_release."
 
-    base_dir = _get_blast_database_release_base_dir(user_cli)
+    base_dir = _get_blast_database_release_base_dir(
+        user_cli=user_cli,
+        automation_resource_config=automation_resource_config,
+    )
     release_path = _resolve_release_path(base_dir=base_dir, release_name=release_name)
     genome_uuids = _get_live_genome_uuids(db_session)
+    expected_files = _get_blast_database_release_expected_files(
+        automation_resource_config
+    )
 
     _assert_blast_database_release_is_complete(
         release_path=release_path,
         genome_uuids=genome_uuids,
-        expected_files=BLAST_DATABASE_EXPECTED_FILES,
+        expected_files=expected_files,
     )
