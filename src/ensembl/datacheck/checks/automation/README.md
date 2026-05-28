@@ -31,7 +31,8 @@ Build shared CLI args:
 
 ```bash
 COMMON_ARGS="--database ${METADATA_DB_URL} --taxonomy_database ${TAXONOMY_DB_URL} --automation_resource_config ${AUTOMATION_CONFIG}"
-COMMON_ARGS="${COMMON_ARGS} --release_name ${RELEASE_NAME} --genome_uuid ${GENOME_UUID}"
+[ -n "${RELEASE_NAME}" ] && COMMON_ARGS="${COMMON_ARGS} --release_name ${RELEASE_NAME}"
+[ -n "${GENOME_UUID}" ] && COMMON_ARGS="${COMMON_ARGS} --genome_uuid ${GENOME_UUID}"
 ```
 
 ## 2) Run each automation test module
@@ -57,6 +58,6 @@ ensembl-datacheck --test=automation ${COMMON_ARGS}
 ## Notes
 
 - `--test=automation` runs every `*.py` module in this directory (excluding `conftest.py`).
-- `automation_blast_database_release` defaults to `/nfs/production/flicek/ensembl/production/blastdb`.
+- `automation_blast_database_release` reads `base_path` and `expected_files` from the `blast_database_release` config.
   Override it with `--params base_dir=/path/to/blastdb`.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).

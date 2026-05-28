@@ -21,6 +21,29 @@ from ensembl.datacheck.checks.automation import (
     automation_blast_database_release as blast_release,
 )
 
+BLAST_DATABASE_EXPECTED_FILES = [
+    "cdna.nhr",
+    "cds.nhr",
+    "pep.phr",
+    "softmasked.nhr",
+    "unmasked.nhr",
+    "cdna.nin",
+    "cds.nin",
+    "pep.pin",
+    "softmasked.nin",
+    "unmasked.nin",
+    "cdna.njs",
+    "cds.njs",
+    "pep.pjs",
+    "softmasked.njs",
+    "unmasked.njs",
+    "cdna.nsq",
+    "cds.nsq",
+    "pep.psq",
+    "softmasked.nsq",
+    "unmasked.nsq",
+]
+
 
 class _DummyCli:
     def __init__(self, options):
@@ -41,7 +64,10 @@ def _write_manifest(release_path, relative_paths):
 
 
 def test_get_blast_database_release_base_dir_defaults_to_nfs_path():
-    assert blast_release._get_blast_database_release_base_dir(_DummyCli({})) == (
+    assert blast_release._get_blast_database_release_base_dir(
+        user_cli=_DummyCli({}),
+        automation_resource_config={"blast_database_release": {}},
+    ) == (
         "/nfs/production/flicek/ensembl/production/blastdb"
     )
 
@@ -49,7 +75,33 @@ def test_get_blast_database_release_base_dir_defaults_to_nfs_path():
 def test_get_blast_database_release_base_dir_accepts_base_dir_param():
     user_cli = _DummyCli({"--params": ["base_dir=/tmp/blastdb"]})
 
-    assert blast_release._get_blast_database_release_base_dir(user_cli) == "/tmp/blastdb"
+    assert blast_release._get_blast_database_release_base_dir(
+        user_cli=user_cli,
+        automation_resource_config={
+            "blast_database_release": {
+                "base_path": "/configured/blastdb",
+            }
+        },
+    ) == "/tmp/blastdb"
+
+
+def test_get_blast_database_release_base_dir_uses_config_base_path():
+    assert blast_release._get_blast_database_release_base_dir(
+        user_cli=_DummyCli({}),
+        automation_resource_config={
+            "blast_database_release": {
+                "base_path": "/configured/blastdb",
+            }
+        },
+    ) == "/configured/blastdb"
+
+
+def test_get_blast_database_release_expected_files_uses_config():
+    assert blast_release._get_blast_database_release_expected_files({
+        "blast_database_release": {
+            "expected_files": BLAST_DATABASE_EXPECTED_FILES,
+        }
+    }) == BLAST_DATABASE_EXPECTED_FILES
 
 
 def test_resolve_release_path_uses_release_name_subdirectory(tmp_path):
@@ -167,8 +219,13 @@ def test_check_blast_database_release_uses_live_genomes_and_cli_inputs(
             "--params": [f"base_dir={tmp_path}"],
         }),
         db_session=object(),
+        automation_resource_config={
+            "blast_database_release": {
+                "expected_files": BLAST_DATABASE_EXPECTED_FILES,
+            }
+        },
     )
 
     assert captured["release_path"] == release_path
     assert captured["genome_uuids"] == ["0003e543-fe3d-4cc5-beea-02d2bfaa90f4"]
-    assert captured["expected_files"] == blast_release.BLAST_DATABASE_EXPECTED_FILES
+    assert captured["expected_files"] == BLAST_DATABASE_EXPECTED_FILES
