@@ -52,6 +52,9 @@ Repository = "https://github.com/Ensembl/ensembl-datacheck-py"
 [project.entry-points."console_scripts"]
 ensembl-datacheck = "ensembl.datacheck.runner:main"
 
+[tool.setuptools.package-data]
+"ensembl.datacheck.checks.automation" = ["resource_config.json"]
+
 
 [tool.pytest.ini_options]
 testpaths = ["src/ensembl/datacheck/checks/"]
