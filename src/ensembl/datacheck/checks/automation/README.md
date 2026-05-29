@@ -25,6 +25,18 @@ Optional config override:
 export AUTOMATION_CONFIG="src/ensembl/datacheck/checks/automation/resource_config.json"
 ```
 
+Optional resource config overrides:
+
+```bash
+export ENSEMBL_DATACHECK_BLAST_DATABASE_FILES_BASE_PATH="/path/to/blast_db"
+```
+
+Runtime `--params` overrides use dotted config paths:
+
+```bash
+--params blast_database_files.base_path=/path/to/blast_db
+```
+
 Optional filters (recommended to narrow scope):
 
 ```bash
@@ -81,7 +93,9 @@ JSON reports are written with two-space indentation by default. Override with
 - `automation_blast_database_release` reads `base_path` and `expected_files`
   from the `blast_database_release` config. It does not use `--release_name`;
   `base_path` is the BLAST database release directory to check.
-  Override it with `--params base_dir=/path/to/blastdb`.
+- Automation resource config precedence is:
+  `--params` > `ENSEMBL_DATACHECK_*` environment variables >
+  `--automation_resource_config` JSON > bundled repo JSON.
 - `automation_blast_database_release` failures start with a one-line count and
   release path. Native output includes the full discrepancy list inline. JSON
   reports store the same full list under the failure's `details.items` field.
