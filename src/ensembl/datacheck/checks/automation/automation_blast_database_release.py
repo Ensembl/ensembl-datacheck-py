@@ -90,32 +90,13 @@ def _get_blast_database_release_expected_files(automation_resource_config):
     return expected_files
 
 
-def _resolve_release_path(base_dir, release_name):
-    """Resolve the release directory under base_dir, with a compatibility fallback."""
-    base_path = Path(base_dir)
-    candidate_paths = [base_path / str(release_name)]
-    if not str(release_name).startswith("release_"):
-        candidate_paths.append(base_path / f"release_{release_name}")
-    candidate_paths.append(base_path)
-
-    unique_candidate_paths = []
-    for candidate_path in candidate_paths:
-        if candidate_path not in unique_candidate_paths:
-            unique_candidate_paths.append(candidate_path)
-
-    for candidate_path in unique_candidate_paths:
-        if candidate_path.is_dir() and (candidate_path / "manifest").is_file():
-            return candidate_path
-
-    for candidate_path in unique_candidate_paths:
-        if candidate_path.is_dir():
-            return candidate_path
-
-    searched_paths = [str(path) for path in unique_candidate_paths]
-    raise AssertionError(
-        f"BLAST database release '{release_name}' was not found under {base_path}. "
-        f"Checked release directories: {searched_paths}"
+def _resolve_release_path(base_dir):
+    """Resolve the BLAST database release directory from the configured base path."""
+    release_path = Path(base_dir)
+    assert release_path.is_dir(), (
+        f"BLAST database release directory does not exist: {release_path}"
     )
+    return release_path
 
 
 def _get_live_genome_uuids(db_session):
@@ -194,18 +175,11 @@ def _assert_no_discrepancies(label, release_path, items):
 
 def _get_blast_database_release_context(user_cli, db_session, automation_resource_config):
     """Build shared BLAST database release validation context."""
-    release_name = _getoption(
-        user_cli,
-        "--release_name",
-        _getoption(user_cli, "release_name"),
-    )
-    assert release_name, "Missing --release_name for blast_database_release."
-
     base_dir = _get_blast_database_release_base_dir(
         user_cli=user_cli,
         automation_resource_config=automation_resource_config,
     )
-    release_path = _resolve_release_path(base_dir=base_dir, release_name=release_name)
+    release_path = _resolve_release_path(base_dir=base_dir)
     genome_uuids = _get_live_genome_uuids(db_session)
     expected_files = _get_blast_database_release_expected_files(
         automation_resource_config
