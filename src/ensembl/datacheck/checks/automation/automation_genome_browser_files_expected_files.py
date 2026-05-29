@@ -114,26 +114,36 @@ def check_genome_browser_files_expected_files(genomes, automation_resource_confi
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
 
     subfolder = browser_config.get("subfolder", "")
-    effective_base = str(Path(base_path) / subfolder) if subfolder else base_path
-    relative_path = _resolve_genome_browser_relative_path(
-        base_path=effective_base,
-        release_name=release_name,
-        genome_uuid=genome_uuid,
-    )
+    use_alt = browser_config.get("use_alt_base_path", False)
+    if use_alt:
+        relative_path = Path(f"release-{release_name}") / subfolder / genome_uuid if subfolder else Path(f"release-{release_name}") / genome_uuid
+        assert (Path(base_path) / relative_path).is_dir(), (
+            f"genome_browser_files path does not exist for genome_uuid={genome_uuid}: "
+            f"{Path(base_path) / relative_path}"
+        )
+        check_base = base_path
+    else:
+        effective_base = str(Path(base_path) / subfolder) if subfolder else base_path
+        relative_path = _resolve_genome_browser_relative_path(
+            base_path=effective_base,
+            release_name=release_name,
+            genome_uuid=genome_uuid,
+        )
+        check_base = effective_base
 
     validate_expected_files(
-        base_path=effective_base,
+        base_path=check_base,
         relative_path=relative_path,
         expected_files=expected_files,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )
     _validate_only_allowed_genome_browser_extensions(
-        base_path=effective_base,
+        base_path=check_base,
         relative_path=relative_path,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )
     _validate_required_genome_browser_extensions_present(
-        base_path=effective_base,
+        base_path=check_base,
         relative_path=relative_path,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )

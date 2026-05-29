@@ -19,11 +19,44 @@ from pathlib import Path
 
 import pytest
 
+from ensembl.datacheck.checks.automation import automation_genome_browser_files_expected_files as browser_checks
 from ensembl.datacheck.checks.automation.automation_genome_browser_files_expected_files import (
     _resolve_genome_browser_relative_path,
     _validate_only_allowed_genome_browser_extensions,
     _validate_required_genome_browser_extensions_present,
 )
+
+
+def test_check_genome_browser_files_uses_alt_layout(monkeypatch, tmp_path):
+    genome_uuid = "6f93d0b5-3660-414e-8cda-6caf5df23371"
+    (tmp_path / "release-22" / "genome_browser_files" / genome_uuid).mkdir(parents=True)
+    captured = {}
+
+    def _fake_validate(base_path, relative_path, **kwargs):
+        captured["base_path"] = base_path
+        captured["relative_path"] = relative_path
+
+    def _fake_validate_extensions(base_path, relative_path, resource_label):
+        pass
+
+    monkeypatch.setattr(browser_checks, "validate_expected_files", _fake_validate)
+    monkeypatch.setattr(browser_checks, "_validate_only_allowed_genome_browser_extensions", _fake_validate_extensions)
+    monkeypatch.setattr(browser_checks, "_validate_required_genome_browser_extensions_present", _fake_validate_extensions)
+
+    browser_checks.check_genome_browser_files_expected_files(
+        genomes={"genome_uuid": genome_uuid, "release_name": 22},
+        automation_resource_config={
+            "genome_browser_files": {
+                "base_path": str(tmp_path),
+                "subfolder": "genome_browser_files",
+                "use_alt_base_path": True,
+                "expected_files": ["chrom.hashes"],
+            }
+        },
+    )
+
+    assert captured["base_path"] == str(tmp_path)
+    assert captured["relative_path"] == Path("release-22") / "genome_browser_files" / genome_uuid
 
 
 def test_resolve_genome_browser_relative_path_supports_direct_layout(tmp_path):
