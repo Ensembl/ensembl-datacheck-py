@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 
 from ensembl.datacheck.checks.automation import (
-    automation_blast_database_files_expected_files as blast_db_checks,
+    automation_blast_database_expected_files as blast_db_checks,
 )
-from ensembl.datacheck.checks.automation.automation_blast_database_files_expected_files import (
+from ensembl.datacheck.checks.automation.automation_blast_database_expected_files import (
     _resolve_blast_database_files_relative_path,
 )
 

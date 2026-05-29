@@ -15,7 +15,7 @@
             ]
         },
         "blast_database_release": {
-            "base_path": "/nfs/production/flicek/ensembl/production/blastdb",
+            "base_path": "/nfs/production/flicek/ensembl/production/blast_db",
             "type": "dir",
             "expected_files": [
                 "cdna.nhr", "cds.nhr", "pep.phr", "softmasked.nhr", "unmasked.nhr",

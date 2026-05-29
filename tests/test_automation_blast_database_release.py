@@ -122,12 +122,17 @@ def test_get_blast_database_release_expected_files_uses_config():
     }) == BLAST_DATABASE_EXPECTED_FILES
 
 
-def test_resolve_release_path_uses_release_name_subdirectory(tmp_path):
-    release_path = tmp_path / "2026_05"
-    release_path.mkdir()
-    (release_path / "manifest").touch()
+def test_resolve_release_path_uses_base_dir(tmp_path):
+    assert blast_release._resolve_release_path(tmp_path) == tmp_path
 
-    assert blast_release._resolve_release_path(tmp_path, "2026_05") == release_path
+
+def test_resolve_release_path_requires_existing_directory(tmp_path):
+    missing_path = tmp_path / "missing"
+
+    with pytest.raises(AssertionError) as exc_info:
+        blast_release._resolve_release_path(missing_path)
+
+    assert "BLAST database release directory does not exist" in str(exc_info.value)
 
 
 def test_expected_relative_file_paths_uses_first_three_uuid_characters():
@@ -142,7 +147,7 @@ def test_expected_relative_file_paths_uses_first_three_uuid_characters():
 
 
 def test_get_blast_database_release_context_builds_expected_context(monkeypatch, tmp_path):
-    release_path = tmp_path / "2026_05"
+    release_path = tmp_path / "blastdb"
     genome_uuid = "0003e543-fe3d-4cc5-beea-02d2bfaa90f4"
     expected_files = ["cdna.nhr", "cdna.nin"]
     expected_paths = blast_release._expected_relative_file_paths(
@@ -163,8 +168,7 @@ def test_get_blast_database_release_context_builds_expected_context(monkeypatch,
 
     context = blast_release._get_blast_database_release_context(
         user_cli=_DummyCli({
-            "--release_name": "2026_05",
-            "--params": [f"base_dir={tmp_path}"],
+            "--params": [f"base_dir={release_path}"],
         }),
         db_session=object(),
         automation_resource_config={

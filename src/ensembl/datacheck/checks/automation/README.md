@@ -46,7 +46,7 @@ COMMON_ARGS="--database ${METADATA_DB_URL} --taxonomy_database ${TAXONOMY_DB_URL
 
 ```bash
 ensembl-datacheck --test=automation/automation_blast_expected_files ${COMMON_ARGS}
-ensembl-datacheck --test=automation/automation_blast_database_files_expected_files ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_blast_database_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_blast_database_release ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_compara_mongo_load ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_ftp_expected_files ${COMMON_ARGS}
@@ -79,7 +79,8 @@ JSON reports are written with two-space indentation by default. Override with
 
 - `--test=automation` runs every `*.py` module in this directory (excluding `conftest.py`).
 - `automation_blast_database_release` reads `base_path` and `expected_files`
-  from the `blast_database_release` config.
+  from the `blast_database_release` config. It does not use `--release_name`;
+  `base_path` is the BLAST database release directory to check.
   Override it with `--params base_dir=/path/to/blastdb`.
 - `automation_blast_database_release` failures start with a one-line count and
   release path. Native output includes the full discrepancy list inline. JSON
