@@ -83,29 +83,14 @@ def _assert_discrepancy_failure(
 
 def test_get_blast_database_release_base_dir_defaults_to_nfs_path():
     assert blast_release._get_blast_database_release_base_dir(
-        user_cli=_DummyCli({}),
         automation_resource_config={"blast_database_release": {}},
     ) == (
         "/nfs/production/flicek/ensembl/production/blastdb"
     )
 
 
-def test_get_blast_database_release_base_dir_accepts_base_dir_param():
-    user_cli = _DummyCli({"--params": ["base_dir=/tmp/blastdb"]})
-
-    assert blast_release._get_blast_database_release_base_dir(
-        user_cli=user_cli,
-        automation_resource_config={
-            "blast_database_release": {
-                "base_path": "/configured/blastdb",
-            }
-        },
-    ) == "/tmp/blastdb"
-
-
 def test_get_blast_database_release_base_dir_uses_config_base_path():
     assert blast_release._get_blast_database_release_base_dir(
-        user_cli=_DummyCli({}),
         automation_resource_config={
             "blast_database_release": {
                 "base_path": "/configured/blastdb",
@@ -167,12 +152,11 @@ def test_get_blast_database_release_context_builds_expected_context(monkeypatch,
     )
 
     context = blast_release._get_blast_database_release_context(
-        user_cli=_DummyCli({
-            "--params": [f"base_dir={release_path}"],
-        }),
+        user_cli=_DummyCli({}),
         db_session=object(),
         automation_resource_config={
             "blast_database_release": {
+                "base_path": str(release_path),
                 "expected_files": expected_files,
             }
         },

@@ -33,30 +33,6 @@ DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR = (
 )
 
 
-def _getoption(user_cli, name, default=None):
-    """Return a pytest config option, tolerating lightweight test doubles."""
-    try:
-        value = user_cli.getoption(name)
-    except (AttributeError, ValueError):
-        return default
-    return default if value is None else value
-
-
-def _parse_key_value_params(raw_params):
-    """Parse --params values into a dict for this check's optional inputs."""
-    parsed_params = {}
-    for raw_param in raw_params or []:
-        for param in raw_param.split(","):
-            param = param.strip()
-            if not param:
-                continue
-            if "=" not in param:
-                continue
-            key, value = param.split("=", 1)
-            parsed_params[key.strip()] = value.strip()
-    return parsed_params
-
-
 def _get_blast_database_release_config(automation_resource_config):
     """Return blast_database_release config, failing clearly when absent."""
     release_config = automation_resource_config.get("blast_database_release")
@@ -66,16 +42,11 @@ def _get_blast_database_release_config(automation_resource_config):
     return release_config
 
 
-def _get_blast_database_release_base_dir(user_cli, automation_resource_config):
-    """Resolve base directory from --params, config, or default."""
-    params = _parse_key_value_params(
-        _getoption(user_cli, "--params", _getoption(user_cli, "params", []))
-    )
+def _get_blast_database_release_base_dir(automation_resource_config):
+    """Resolve base directory from config or default."""
     release_config = _get_blast_database_release_config(automation_resource_config)
     return (
-        params.get("blast_database_release_base_dir")
-        or params.get("base_dir")
-        or release_config.get("base_path")
+        release_config.get("base_path")
         or DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR
     )
 
@@ -175,10 +146,7 @@ def _assert_no_discrepancies(label, release_path, items):
 
 def _get_blast_database_release_context(user_cli, db_session, automation_resource_config):
     """Build shared BLAST database release validation context."""
-    base_dir = _get_blast_database_release_base_dir(
-        user_cli=user_cli,
-        automation_resource_config=automation_resource_config,
-    )
+    base_dir = _get_blast_database_release_base_dir(automation_resource_config)
     release_path = _resolve_release_path(base_dir=base_dir)
     genome_uuids = _get_live_genome_uuids(db_session)
     expected_files = _get_blast_database_release_expected_files(
