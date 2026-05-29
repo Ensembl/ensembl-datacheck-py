@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from ensembl.datacheck.checks.automation import automation_refget_expected_files as refget_checks
 from ensembl.datacheck.checks.automation.automation_refget_expected_files import (
     _resolve_refget_relative_path,
     _validate_only_expected_refget_files,
@@ -34,6 +35,48 @@ REFGET_EXPECTED_FILES = [
     "seqs/pep.txt.zst",
     "seqs/seq.txt.zst",
 ]
+
+
+def test_resolve_refget_relative_path_supports_direct_layout_with_effective_base(tmp_path):
+    genome_uuid = "6f93d0b5-3660-414e-8cda-6caf5df23371"
+    effective_base = tmp_path / "ensembl-refget"
+    (effective_base / "release_22" / genome_uuid).mkdir(parents=True)
+
+    relative_path = _resolve_refget_relative_path(
+        base_path=str(effective_base),
+        release_name=22,
+        genome_uuid=genome_uuid,
+    )
+
+    assert relative_path == Path("release_22") / genome_uuid
+
+
+def test_check_refget_expected_files_uses_alt_layout(monkeypatch, tmp_path):
+    genome_uuid = "6f93d0b5-3660-414e-8cda-6caf5df23371"
+    (tmp_path / "release-22" / "ensembl-refget" / genome_uuid).mkdir(parents=True)
+    captured = {}
+
+    def _fake_validate(base_path, relative_path, expected_files, resource_label):
+        captured["base_path"] = base_path
+        captured["relative_path"] = relative_path
+
+    monkeypatch.setattr(refget_checks, "validate_expected_files", _fake_validate)
+    monkeypatch.setattr(refget_checks, "_validate_only_expected_refget_files", _fake_validate)
+
+    refget_checks.check_refget_expected_files(
+        genomes={"genome_uuid": genome_uuid, "release_name": 22},
+        automation_resource_config={
+            "refget": {
+                "base_path": str(tmp_path),
+                "subfolder": "ensembl-refget",
+                "use_alt_base_path": True,
+                "expected_files": REFGET_EXPECTED_FILES,
+            }
+        },
+    )
+
+    assert captured["base_path"] == str(tmp_path)
+    assert captured["relative_path"] == Path("release-22") / "ensembl-refget" / genome_uuid
 
 
 def test_resolve_refget_relative_path_supports_direct_layout(tmp_path):
