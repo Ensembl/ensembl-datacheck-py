@@ -46,10 +46,11 @@ def _resolve_blast_database_files_relative_path(
 
     if use_alt_base_path:
         release_dir = Path(f"release-{release_name}")
+        uuid_prefix = genome_uuid[:3]
         parts = [release_dir]
         if subfolder:
             parts.append(Path(subfolder))
-        parts.append(Path(genome_uuid))
+        parts.extend([Path(uuid_prefix), Path(genome_uuid)])
         relative = Path(*parts)
         assert (base / relative).is_dir(), (
             f"blast_database_files path does not exist for genome_uuid={genome_uuid}: "

@@ -81,7 +81,8 @@ def test_resolve_blast_database_files_relative_path_supports_one_level_nested_la
 
 def test_resolve_blast_database_files_relative_path_supports_alt_layout(tmp_path):
     genome_uuid = "6f93d0b5-3660-414e-8cda-6caf5df23371"
-    (tmp_path / "release-22" / "blast_db" / genome_uuid).mkdir(parents=True)
+    uuid_prefix = genome_uuid[:3]
+    (tmp_path / "release-22" / "blast_db" / uuid_prefix / genome_uuid).mkdir(parents=True)
 
     relative_path = _resolve_blast_database_files_relative_path(
         base_path=str(tmp_path),
@@ -91,7 +92,7 @@ def test_resolve_blast_database_files_relative_path_supports_alt_layout(tmp_path
         use_alt_base_path=True,
     )
 
-    assert relative_path == Path("release-22") / "blast_db" / genome_uuid
+    assert relative_path == Path("release-22") / "blast_db" / uuid_prefix / genome_uuid
 
 
 def test_resolve_blast_database_files_relative_path_fails_on_multiple_nested_matches(tmp_path):
@@ -147,7 +148,8 @@ def test_check_blast_database_files_expected_files_uses_configured_paths(monkeyp
 
 def test_check_blast_database_files_expected_files_uses_alt_layout(monkeypatch, tmp_path):
     genome_uuid = "6f93d0b5-3660-414e-8cda-6caf5df23371"
-    (tmp_path / "release-22" / "blast_db" / genome_uuid).mkdir(parents=True)
+    uuid_prefix = genome_uuid[:3]
+    (tmp_path / "release-22" / "blast_db" / uuid_prefix / genome_uuid).mkdir(parents=True)
     captured = {}
 
     def _fake_validate_expected_files(base_path, relative_path, expected_files, resource_label):
@@ -175,7 +177,7 @@ def test_check_blast_database_files_expected_files_uses_alt_layout(monkeypatch, 
     )
 
     assert captured["base_path"] == str(tmp_path)
-    assert captured["relative_path"] == Path("release-22") / "blast_db" / genome_uuid
+    assert captured["relative_path"] == Path("release-22") / "blast_db" / uuid_prefix / genome_uuid
     assert captured["expected_files"] == BLAST_DATABASE_EXPECTED_FILES
 
 
