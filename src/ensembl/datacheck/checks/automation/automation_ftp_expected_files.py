@@ -24,6 +24,7 @@ Checks performed:
 """
 
 import logging
+from pathlib import Path
 
 import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
@@ -39,6 +40,10 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
 
     base_path = resource_config.get("base_path")
     assert base_path, f"Missing {resource_key}.base_path in automation resource config."
+
+    subfolder = resource_config.get("subfolder", "")
+    if subfolder:
+        base_path = str(Path(base_path) / subfolder)
 
     expected_files = resource_config.get("expected_files", [])
     assert expected_files, f"Missing {resource_key}.expected_files in automation resource config."

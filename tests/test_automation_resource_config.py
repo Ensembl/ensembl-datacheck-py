@@ -33,11 +33,12 @@ class _DummyRequest:
         self.config = _DummyConfig(options)
 
 
-def _build_config(config_path=None, environ=None, params=None):
+def _build_config(config_path=None, environ=None, params=None, use_alt=False):
     return automation_conftest._build_automation_resource_config(
         config_path=config_path,
         environ=environ or {},
         raw_params=params or [],
+        use_alt=use_alt,
     )
 
 
@@ -108,6 +109,56 @@ def test_automation_resource_config_applies_cli_override_over_environment(tmp_pa
     assert resource_config["blast_database_files"]["base_path"] == "/cli/blastdb"
 
 
+def test_automation_resource_config_use_alt_sets_use_alt_flag(tmp_path):
+    config_path = tmp_path / "resource_config.json"
+    config_path.write_text(json.dumps({
+        "blast_database_files": {
+            "base_path": "/specified/blastdb",
+            "subfolder": "blast_db",
+        },
+    }))
+
+    resource_config = _build_config(config_path=str(config_path), use_alt=True)
+
+    assert resource_config["blast_database_files"]["base_path"] == "/specified/blastdb"
+    assert resource_config["blast_database_files"]["use_alt_base_path"] is True
+
+
+def test_automation_resource_config_use_alt_does_not_affect_resources_without_subfolder(
+    tmp_path,
+):
+    config_path = tmp_path / "resource_config.json"
+    config_path.write_text(json.dumps({
+        "blast_database_release": {
+            "base_path": "/specified/release",
+        },
+    }))
+
+    resource_config = _build_config(config_path=str(config_path), use_alt=True)
+
+    assert resource_config["blast_database_release"]["base_path"] == "/specified/release"
+    assert "use_alt_base_path" not in resource_config["blast_database_release"]
+
+
+def test_automation_resource_config_cli_base_path_override_wins_over_use_alt(tmp_path):
+    config_path = tmp_path / "resource_config.json"
+    config_path.write_text(json.dumps({
+        "blast_database_files": {
+            "base_path": "/specified/blastdb",
+            "subfolder": "blast_db",
+        },
+    }))
+
+    resource_config = _build_config(
+        config_path=str(config_path),
+        params=["blast_database_files.base_path=/cli/blastdb"],
+        use_alt=True,
+    )
+
+    assert resource_config["blast_database_files"]["base_path"] == "/cli/blastdb"
+    assert resource_config["blast_database_files"]["use_alt_base_path"] is True
+
+
 def test_automation_resource_config_accepts_double_underscore_environment_key():
     resource_config = _build_config(
         environ={
@@ -136,6 +187,7 @@ def test_automation_resource_config_fixture_uses_request_options(monkeypatch):
         _DummyRequest({
             "--automation_resource_config": None,
             "--params": ["blast_database_files.base_path=/cli/blastdb"],
+            "use_alt": False,
         })
     )
 

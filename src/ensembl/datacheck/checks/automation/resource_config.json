@@ -1,11 +1,13 @@
 {
         "blast": {
-            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/blast",
+            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+            "subfolder": "blast",
             "type": "dir",
             "expected_files": ["cdna.fa", "cds.fa", "pep.fa", "softmasked.fa", "unmasked.fa"]
         },
         "blast_database_files": {
-            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/blast_db",
+            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+            "subfolder": "blast_db",
             "type": "dir",
             "expected_files": [
                 "cdna.nhr", "cds.nhr", "pep.phr", "softmasked.nhr", "unmasked.nhr",
@@ -26,14 +28,16 @@
         },
         "refget": {
           "type": "dir",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/ensembl-refget",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web",
+          "subfolder": "ensembl-refget",
             "expected_files": ["cdna.hashes","cds.hashes","chrom.hashes", "pep.hashes",
               "seqs/cdna.txt.zst","seqs/cds.txt.zst","seqs/pep.txt.zst","seqs/seq.txt.zst"
             ]
         },
         "genome_browser_files": {
           "type": "dir",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/genome_browser_files",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web",
+          "subfolder": "genome_browser_files",
             "expected_files": ["chrom.hashes",  "chrom.sizes.ncd",   "genome_report.txt",
               "simple-features.bb", "chrom.hashes.ncd",  "contigs.bb",
               "jump.ncd", "transcripts.bb", "chrom.sizes",
@@ -42,12 +46,14 @@
         },
         "genesearch": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web/solr_index/"
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web",
+          "subfolder": "solr_index"
         },
         "ftp_dumps_geneset": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
-          "expected_files": ["cdna.fa.bgz", "cdna.fa.bgz.fai", "genes.embl.gz", 
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp",
+          "subfolder": "organisms",
+          "expected_files": ["cdna.fa.bgz", "cdna.fa.bgz.fai", "genes.embl.gz",
                   "genes.gff3.bgz", "genes.gff3.bgz.csi", "genes.gff3.gz",
                   "genes.gtf.bgz", "genes.gtf.bgz.csi", "genes.gtf.gz",
                   "md5sum.txt", "pep.fa.bgz", "pep.fa.bgz.fai",
@@ -55,24 +61,28 @@
         },
         "ftp_dumps_genomes": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
-          "expected_files": ["hardmasked.fa.bgz", "hardmasked.fa.bgz.fai", "md5sum.txt", 
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp",
+          "subfolder": "organisms",
+          "expected_files": ["hardmasked.fa.bgz", "hardmasked.fa.bgz.fai", "md5sum.txt",
                   "softmasked.fa.bgz", "softmasked.fa.bgz.fai", "unmasked.fa.bgz",
                   "unmasked.fa.bgz.fai"]
         },
         "ftp_dumps_homology": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp",
+          "subfolder": "organisms",
           "expected_files": ["*.tsv.gz",  "md5sum.txt"]
         },
         "ftp_dumps_vep_geneset": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp",
+          "subfolder": "organisms",
           "expected_files": ["genes.gff3.bgz", "genes.gff3.bgz.csi"]
         },
         "ftp_dumps_vep_genome": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp/organisms",
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/ftp_mvp",
+          "subfolder": "organisms",
           "expected_files": ["softmasked.fa.bgz"]
         },
         "thoas_mongo_public_resource_uri": {

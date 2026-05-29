@@ -48,11 +48,12 @@ def check_blast_expected_files(genomes, automation_resource_config):
     release_name = genomes.get("release_name")
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
 
-
+    subfolder = blast_config.get("subfolder", "")
+    relative_path = Path(subfolder) / f"release_{release_name}" / genome_uuid if subfolder else Path(f"release_{release_name}") / genome_uuid
 
     validate_expected_files(
         base_path=base_path,
-        relative_path=Path(f"release_{release_name}") / genome_uuid,
+        relative_path=relative_path,
         expected_files=expected_files,
         resource_label=f"BLAST (genome_uuid={genome_uuid})",
     )
