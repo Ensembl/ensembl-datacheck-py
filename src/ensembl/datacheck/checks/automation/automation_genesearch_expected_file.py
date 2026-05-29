@@ -39,7 +39,9 @@ def check_genesearch_expected_file(genomes, automation_resource_config):
     release_name = genomes.get("release_name")
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
 
-    genesearch_file = Path(base_path)/ Path(f"release_{release_name}") / f"{genome_uuid}_toplevel_solr.json"
+    subfolder = genesearch_config.get("subfolder", "")
+    effective_base = Path(base_path) / subfolder if subfolder else Path(base_path)
+    genesearch_file = effective_base / f"release_{release_name}" / f"{genome_uuid}_toplevel_solr.json"
     assert genesearch_file.is_file(), (
         f"genesearch file does not exist for genome_uuid={genome_uuid}: {genesearch_file}"
     )

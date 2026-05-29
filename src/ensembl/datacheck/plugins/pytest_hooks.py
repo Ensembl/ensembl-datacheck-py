@@ -114,6 +114,11 @@ def pytest_addoption(parser):
     parser.addoption("--genome_uuid", default=None, help="Genome UUID for the datacheck run")
     parser.addoption("--automation_resource_config", action="store",
                      help="Indicates the path to the automation resource config file")
+    parser.addoption(
+        "--use-alt", "--use_alt", dest="use_alt", action="store_true",
+        default=False,
+        help="Use alt_base_path values from automation resource config",
+    )
     parser.addoption("--tag", default=datetime.now().strftime("%Y%m%d_%H%M%S"),
                      help="Custom tag to include in the JSON report metadata for each test item")
     parser.addoption("--other_database", help="Additional Database URL for SQLAlchemy, if needed for specific checks,"

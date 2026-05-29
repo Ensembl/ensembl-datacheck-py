@@ -37,6 +37,15 @@ Runtime `--params` overrides use dotted config paths:
 --params blast_database_files.base_path=/path/to/blast_db
 ```
 
+Use alternate paths from `alt_base_path` values:
+
+```bash
+--use_alt
+```
+
+For `blast_database_files`, `--use_alt` expects genome directories directly
+under `blast_database_files.alt_base_path`.
+
 Optional filters (recommended to narrow scope):
 
 ```bash
@@ -94,7 +103,7 @@ JSON reports are written with two-space indentation by default. Override with
   from the `blast_database_release` config. It does not use `--release_name`;
   `base_path` is the BLAST database release directory to check.
 - Automation resource config precedence is:
-  `--params` > `ENSEMBL_DATACHECK_*` environment variables >
+  `--params` > `--use_alt` > `ENSEMBL_DATACHECK_*` environment variables >
   `--automation_resource_config` JSON > bundled repo JSON.
 - `automation_blast_database_release` failures start with a one-line count and
   release path. Native output includes the full discrepancy list inline. JSON

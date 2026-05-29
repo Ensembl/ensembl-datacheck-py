@@ -28,19 +28,47 @@ import pytest
 from ensembl.datacheck.checks.automation.utils import validate_expected_files
 
 
-def _resolve_blast_database_files_relative_path(base_path, release_name, genome_uuid):
-    """Resolve BLAST database path, allowing an optional one-level subdirectory under release."""
+def _resolve_blast_database_files_relative_path(
+    base_path,
+    release_name,
+    genome_uuid,
+    subfolder=None,
+    use_alt_base_path=False,
+):
+    """Resolve BLAST database path.
+
+    Default layout (base/subfolder/release_X/genome_uuid):
+        base_path is the root; subfolder and release_X are prepended in that order.
+    Alt layout (base/release-X/subfolder/genome_uuid, used when use_alt_base_path=True):
+        release comes first (hyphen-separated), then subfolder, then genome_uuid.
+    """
     base = Path(base_path)
+
+    if use_alt_base_path:
+        release_dir = Path(f"release-{release_name}")
+        parts = [release_dir]
+        if subfolder:
+            parts.append(Path(subfolder))
+        parts.append(Path(genome_uuid))
+        relative = Path(*parts)
+        assert (base / relative).is_dir(), (
+            f"blast_database_files path does not exist for genome_uuid={genome_uuid}: "
+            f"{base / relative}"
+        )
+        return relative
+
+    effective_base = base / subfolder if subfolder else base
     release_root_relative = Path(f"release_{release_name}")
-    release_root = base / release_root_relative
+    release_root = effective_base / release_root_relative
     assert release_root.is_dir(), f"Release directory does not exist: {release_root}"
 
-    direct_relative = release_root_relative / genome_uuid
+    prefix = Path(subfolder) if subfolder else Path()
+    direct_relative = prefix / release_root_relative / genome_uuid
     if (base / direct_relative).is_dir():
         return direct_relative
 
     nested_candidates = sorted(
-        candidate.relative_to(base)
+        prefix / candidate.relative_to(effective_base)
         for candidate in release_root.glob(f"*/{genome_uuid}")
         if candidate.is_dir()
     )
@@ -68,15 +96,22 @@ def check_blast_database_files_expected_files(genomes, automation_resource_confi
     assert base_path, "Missing blast_database_files.base_path in automation resource config."
 
     expected_files = blast_database_files_config.get("expected_files", [])
-    assert expected_files, "Missing blast_database_files.expected_files in automation resource config."
+    assert expected_files, (
+        "Missing blast_database_files.expected_files in automation resource config."
+    )
 
     genome_uuid = genomes["genome_uuid"]
     release_name = genomes.get("release_name")
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
+
+    subfolder = blast_database_files_config.get("subfolder")
+    use_alt = blast_database_files_config.get("use_alt_base_path", False)
     relative_path = _resolve_blast_database_files_relative_path(
         base_path=base_path,
         release_name=release_name,
         genome_uuid=genome_uuid,
+        subfolder=subfolder,
+        use_alt_base_path=use_alt,
     )
 
     validate_expected_files(

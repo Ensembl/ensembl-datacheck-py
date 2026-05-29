@@ -112,25 +112,28 @@ def check_genome_browser_files_expected_files(genomes, automation_resource_confi
     genome_uuid = genomes["genome_uuid"]
     release_name = genomes.get("release_name")
     assert release_name is not None, f"Missing release_name for genome_uuid={genome_uuid}"
+
+    subfolder = browser_config.get("subfolder", "")
+    effective_base = str(Path(base_path) / subfolder) if subfolder else base_path
     relative_path = _resolve_genome_browser_relative_path(
-        base_path=base_path,
+        base_path=effective_base,
         release_name=release_name,
         genome_uuid=genome_uuid,
     )
 
     validate_expected_files(
-        base_path=base_path,
+        base_path=effective_base,
         relative_path=relative_path,
         expected_files=expected_files,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )
     _validate_only_allowed_genome_browser_extensions(
-        base_path=base_path,
+        base_path=effective_base,
         relative_path=relative_path,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )
     _validate_required_genome_browser_extensions_present(
-        base_path=base_path,
+        base_path=effective_base,
         relative_path=relative_path,
         resource_label=f"genome_browser_files (release={release_name}, genome_uuid={genome_uuid})",
     )

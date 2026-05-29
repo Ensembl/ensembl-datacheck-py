@@ -36,6 +36,7 @@ AUTOMATION_ENV_PREFIX = "ENSEMBL_DATACHECK_"
 AUTOMATION_CONFIG_FIELDS = (
     "expected_files",
     "base_path",
+    "subfolder",
     "ignore",
     "type",
     "uri",
@@ -148,7 +149,8 @@ def _set_config_path(config, dotted_path, value):
             f"Automation config override '{dotted_path}' conflicts with "
             f"non-object config value at '{path_part}'"
         )
-    target[path_parts[-1]] = value
+    config_field = path_parts[-1]
+    target[config_field] = value
 
 
 def _apply_config_overrides(config, overrides):
@@ -173,7 +175,23 @@ def _automation_environment_overrides(environ):
     return overrides
 
 
-def _build_automation_resource_config(config_path, environ, raw_params):
+def _apply_alt_base_paths(config):
+    """Mark resources with a subfolder as using alt path ordering (release before subfolder)."""
+    resolved_config = deepcopy(config)
+    for resource_config in resolved_config.values():
+        if not isinstance(resource_config, dict):
+            continue
+        if resource_config.get("subfolder"):
+            resource_config["use_alt_base_path"] = True
+    return resolved_config
+
+
+def _build_automation_resource_config(
+    config_path,
+    environ,
+    raw_params,
+    use_alt=False,
+):
     """Build automation config with repo < JSON < env < CLI precedence."""
     bundled_config = _load_json_config(_bundled_automation_resource_config_path())
     specified_config = {}
@@ -187,6 +205,8 @@ def _build_automation_resource_config(config_path, environ, raw_params):
         resource_config,
         _automation_environment_overrides(environ),
     )
+    if use_alt:
+        resource_config = _apply_alt_base_paths(resource_config)
     return _apply_config_overrides(
         resource_config,
         _parse_key_value_params(raw_params),
@@ -239,6 +259,7 @@ def automation_resource_config(request):
         config_path=request.config.getoption("--automation_resource_config"),
         environ=os.environ,
         raw_params=request.config.getoption("--params"),
+        use_alt=request.config.getoption("use_alt"),
     )
 
 
