@@ -84,12 +84,56 @@ def _run_blastdbcmd_info(db_prefix, taxdb_dir=None):
     )
 
 
+def _collect_real_errors(output):
+    """
+    Parse blastdbcheck output into a list of genuine errors.
+
+    blastdbcheck prints one line per (volume / test), e.g. '<path> / MetaData:'
+    or '<path> / Sample: Status for OID 0: PASS', with NCBI C++ exception
+    detail spilling onto following unprefixed lines. A multi-line exception
+    must be judged as a whole: the cause ('Taxid 9606 not found') sits a couple
+    of lines below the 'NCBI C++ Exception:' header, so a line-by-line filter
+    flags the header even when the cause is the benign taxid lookup. We group
+    consecutive lines of the same test back together and classify each block.
+    """
+    test_re = re.compile(r" / (\w+):\s?(.*)$")
+    oid_re = re.compile(r"Status for OID \d+:\s*(\S+)")
+
+    blocks = []  # [test_name, merged_text]
+    for raw in output.splitlines():
+        match = test_re.search(raw)
+        if match:
+            test, message = match.group(1), match.group(2)
+            if blocks and blocks[-1][0] == test:
+                blocks[-1][1] += " " + message
+            else:
+                blocks.append([test, message])
+        elif raw.strip() and blocks:
+            blocks[-1][1] += " " + raw.strip()  # exception traceback continuation
+
+    real_errors = []
+    for test, text in blocks:
+        text = text.strip()
+        low = text.lower()
+
+        bad_oids = [s for s in oid_re.findall(text) if s.upper() != "PASS"]
+        if bad_oids:
+            real_errors.append(f"{test}: {len(bad_oids)} sampled OID(s) did not PASS")
+
+        if ("[error]" in low or "exception" in low) and not _TAXID_LOOKUP_NOISE.search(text):
+            real_errors.append(f"{test}: {text}")
+
+    return real_errors
+
+
 def _run_blastdbcheck(db_prefix, taxdb_dir=None, full=False, sample=200):
     """
     Run blastdbcheck and return (passed, real_errors).
 
-    The benign taxid-lookup exception is filtered out. A real error is any
-    non-PASS OID status or any *other* exception text.
+    stderr is merged into stdout so an exception header and its cause stay
+    adjacent and can be grouped. The benign taxid-lookup exception (raised
+    when taxdb.* isn't on the BLASTDB path) is filtered out; a non-PASS OID
+    or any other exception is a real error.
     """
     exe = shutil.which("blastdbcheck")
     if exe is None:
@@ -97,16 +141,13 @@ def _run_blastdbcheck(db_prefix, taxdb_dir=None, full=False, sample=200):
 
     cmd = [exe, "-db", _blast_db_prefix(db_prefix), "-verbosity", "3"]
     cmd += ["-full"] if full else ["-random", str(sample)]
-    proc = subprocess.run(cmd, capture_output=True, text=True, env=_blast_env(taxdb_dir))
+    proc = subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, env=_blast_env(taxdb_dir),
+    )
 
-    real_errors = []
-    for line in (proc.stdout + proc.stderr).splitlines():
-        line = line.strip()
-        if "Status for OID" in line and "PASS" not in line:
-            real_errors.append(line)
-        elif ("Error:" in line or "Exception" in line) and not _TAXID_LOOKUP_NOISE.search(line):
-            real_errors.append(line)
-    return (not real_errors), real_errors
+    errors = _collect_real_errors(proc.stdout)
+    return (not errors), errors
 
 
 def check_exist(target_file):
