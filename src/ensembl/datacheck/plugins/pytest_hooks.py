@@ -291,6 +291,17 @@ def pytest_configure(config):
     if not config.getoption("--native-output"):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
 
+    # If pytest's internal cache dir isn't writable (e.g. rootdir resolved to a
+    # system path like /hps/ when running from an installed package), redirect it
+    # to a temp location before any writes are attempted.
+    import tempfile
+    _cache = getattr(config, 'cache', None)
+    if _cache is not None:
+        _cache_dir = _cache._cachedir
+        _check = _cache_dir if _cache_dir.exists() else _cache_dir.parent
+        if not os.access(_check, os.W_OK):
+            _cache._cachedir = pathlib.Path(tempfile.gettempdir()) / 'dc_pytest_cache'
+
     # Handle caching logic
     target_file = config.getoption("target_file")
     database = config.getoption("--database")

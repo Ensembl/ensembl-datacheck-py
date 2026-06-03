@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import sys
+import pathlib
+import tempfile
 import pytest
 
 
@@ -38,6 +40,13 @@ def main():
 
     # Always add the plugin
     args.extend(['-p', plugin_name])
+
+    # Redirect pytest's internal cache to a writable temp location unless the caller
+    # already specified one. Without this, pytest resolves rootdir to a system path
+    # (e.g. /hps/) when tests run from an installed package, then fails to create
+    # .pytest_cache there with a permission error.
+    if not any(arg.startswith('--cache-dir') for arg in args):
+        args.extend(['--cache-dir', str(pathlib.Path(tempfile.gettempdir()) / 'dc_pytest_cache')])
 
     # Check if traceback option is present
     tb_option_present = any(arg.startswith('--tb') for arg in args)
