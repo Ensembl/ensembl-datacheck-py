@@ -32,6 +32,10 @@ DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR = (
     "/nfs/production/flicek/ensembl/production/blastdb"
 )
 
+# Files with these extensions are optional: present or absent is equally valid.
+# In the long term these should be generated every time.
+_OPTIONAL_EXTENSIONS = frozenset({'.njs', '.pjs'})
+
 
 def _get_blast_database_release_config(automation_resource_config):
     """Return blast_database_release config, failing clearly when absent."""
@@ -219,8 +223,11 @@ def check_blast_database_release_extra_files(blast_database_release_context):
     """Check that the release contains no unexpected BLAST database files."""
     release_path = blast_database_release_context["release_path"]
     extra_files = sorted(
-        blast_database_release_context["actual_file_paths"]
-        - blast_database_release_context["expected_file_paths"]
+        path for path in (
+            blast_database_release_context["actual_file_paths"]
+            - blast_database_release_context["expected_file_paths"]
+        )
+        if Path(path).suffix not in _OPTIONAL_EXTENSIONS
     )
     _assert_no_discrepancies(
         label="Extra files",
@@ -256,8 +263,11 @@ def check_blast_database_release_extra_manifest_files(blast_database_release_con
     """Check that manifest contains no unexpected BLAST database file paths."""
     release_path = blast_database_release_context["release_path"]
     extra_manifest_files = sorted(
-        blast_database_release_context["manifest_file_paths"]
-        - blast_database_release_context["expected_file_paths"]
+        path for path in (
+            blast_database_release_context["manifest_file_paths"]
+            - blast_database_release_context["expected_file_paths"]
+        )
+        if Path(path).suffix not in _OPTIONAL_EXTENSIONS
     )
     _assert_no_discrepancies(
         label="Extra manifest files",
