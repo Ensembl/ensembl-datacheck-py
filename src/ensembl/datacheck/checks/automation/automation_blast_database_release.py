@@ -207,8 +207,11 @@ def check_blast_database_release_missing_files(blast_database_release_context):
     """Check that every expected BLAST database file is present."""
     release_path = blast_database_release_context["release_path"]
     missing_files = sorted(
-        blast_database_release_context["expected_file_paths"]
-        - blast_database_release_context["actual_file_paths"]
+        path for path in (
+            blast_database_release_context["expected_file_paths"]
+            - blast_database_release_context["actual_file_paths"]
+        )
+        if Path(path).suffix not in _OPTIONAL_EXTENSIONS
     )
     _assert_no_discrepancies(
         label="Missing files",

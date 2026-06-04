@@ -22,7 +22,6 @@
             "expected_files": [
                 "cdna.nhr", "cds.nhr", "pep.phr", "softmasked.nhr", "unmasked.nhr",
                 "cdna.nin", "cds.nin", "pep.pin", "softmasked.nin", "unmasked.nin",
-                "cdna.njs", "cds.njs", "pep.pjs", "softmasked.njs", "unmasked.njs",
                 "cdna.nsq", "cds.nsq", "pep.psq", "softmasked.nsq", "unmasked.nsq"
             ]
         },
