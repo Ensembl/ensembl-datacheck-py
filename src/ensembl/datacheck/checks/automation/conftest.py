@@ -26,6 +26,7 @@ Checks performed:
 import pytest
 import pathlib
 import json
+import yaml
 import os
 from copy import deepcopy
 from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
@@ -69,11 +70,14 @@ def _bundled_automation_resource_config_path():
     return pathlib.Path(__file__).with_name("resource_config.json")
 
 
-def _load_json_config(config_path):
-    """Load a JSON config file into a dictionary."""
+def _load_config(config_path):
+    """Load a JSON or YAML config file into a dictionary."""
     if not config_path.is_file():
         raise ValueError(f"Config file not found at {config_path}")
-    return json.loads(config_path.read_text())
+    content = config_path.read_text()
+    if config_path.suffix in ('.yaml', '.yml'):
+        return yaml.safe_load(content)
+    return json.loads(content)
 
 
 def _deep_merge_config(base_config, override_config):
@@ -193,12 +197,12 @@ def _build_automation_resource_config(
     use_alt=False,
 ):
     """Build automation config with repo < JSON < env < CLI precedence."""
-    bundled_config = _load_json_config(_bundled_automation_resource_config_path())
+    bundled_config = _load_config(_bundled_automation_resource_config_path())
     specified_config = {}
 
     if config_path:
         resolved_config_path = _resolve_automation_resource_config_path(config_path)
-        specified_config = _load_json_config(resolved_config_path)
+        specified_config = _load_config(resolved_config_path)
 
     resource_config = _deep_merge_config(bundled_config, specified_config)
     resource_config = _apply_config_overrides(
