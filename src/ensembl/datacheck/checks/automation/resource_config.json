@@ -29,7 +29,7 @@
           "type": "dir",
           "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web",
           "subfolder": "ensembl-refget",
-            "expected_files": ["cdna.hashes","cds.hashes","chrom.hashes", "pep.hashes",
+            "expected_files": ["cdna.hashes","cds.hashes","seq.hashes", "pep.hashes",
               "seqs/cdna.txt.zst","seqs/cds.txt.zst","seqs/pep.txt.zst","seqs/seq.txt.zst"
             ]
         },
