@@ -18,6 +18,7 @@
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 from pytest import fixture, raises
@@ -25,49 +26,25 @@ from pytest import fixture, raises
 from ensembl.datacheck.checks import bigchain
 
 
-def _setup_bigchain_file(bed_file_name, bigbed_file_name=None, truncate_length=None):
+def _setup_bigchain_file(bigbed_file_name):
     test_file_dir_path = Path(__file__).parent / "file" / "bigchain"
-
-    bed_file_path = test_file_dir_path / bed_file_name
-    chrom_sizes_file_path = test_file_dir_path / "human.chrom.sizes"
-    bigchain_autosql_file_path = test_file_dir_path / "bigChain.as"
-
-    if bigbed_file_name:
-        bigchain_file_path = test_file_dir_path / bigbed_file_name
-    else:
-        bigchain_file_path = bed_file_path.with_suffix(".bb")
-
-    cmd_args = [
-        "bedToBigBed",
-        bed_file_path,
-        chrom_sizes_file_path,
-        bigchain_file_path,
-        f"-as={bigchain_autosql_file_path}",
-        "-tab",
-        "-type=bed6+6",
-    ]
-    subprocess.check_call(cmd_args)
-
-    if truncate_length is not None:
-        os.truncate(bigchain_file_path, truncate_length)
-
-    return bigchain_file_path
+    return test_file_dir_path / bigbed_file_name
 
 
 @fixture(scope="module")
 def single_entry_bigchain_file():
     """Single-entry bigChain file fixture."""
-    single_entry_bigchain_path = _setup_bigchain_file("human_chimp.single.bed")
+    single_entry_bigchain_path = _setup_bigchain_file("human_chimp.single.bb")
     yield single_entry_bigchain_path
-    single_entry_bigchain_path.unlink()
 
 
 @fixture(scope="module")
 def truncated_bigchain_file():
     """Truncated bigChain file fixture."""
-    truncated_bigchain_path = _setup_bigchain_file(
-        "human_chimp.single.bed", bigbed_file_name="human_chimp.truncated.bb", truncate_length=1234,
-    )
+    single_entry_bigchain_path = _setup_bigchain_file("human_chimp.single.bb")
+    truncated_bigchain_path = _setup_bigchain_file("human_chimp.truncated.bb")
+    shutil.copy(single_entry_bigchain_path, truncated_bigchain_path)
+    os.truncate(truncated_bigchain_path, 1234)
     yield truncated_bigchain_path
     truncated_bigchain_path.unlink()
 
@@ -75,9 +52,8 @@ def truncated_bigchain_file():
 @fixture(scope="module")
 def zero_entry_bigchain_file():
     """Empty bigChain file fixture."""
-    empty_bigchain_path = _setup_bigchain_file("human_chimp.empty.bed")
+    empty_bigchain_path = _setup_bigchain_file("human_chimp.empty.bb")
     yield empty_bigchain_path
-    empty_bigchain_path.unlink()
 
 
 def test_check_exist_no_file():
