@@ -60,7 +60,7 @@ def check_validity(target_file: Path) -> None:
     """
     try:
         load_bigbed_info(target_file)
-    except (RuntimeError, ValueError) as exc:
+    except ValueError as exc:
         raise AssertionError("The target file is not recognised as bigChain.") from exc
     except FileNotFoundError as exc:
         raise FileNotFoundError("The target file does not exist.") from exc
