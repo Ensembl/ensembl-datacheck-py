@@ -92,7 +92,7 @@ def load_bigbed_info(target_file: Path | str) -> dict[str, Any]:
     if not bigbed_info_exe:
         raise RuntimeError("bigBedInfo executable not found")
 
-    cmd_args = [bigbed_info_exe, str(target_file)]
+    cmd_args = [bigbed_info_exe, target_file]
     process = subprocess.run(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, text=True)
 
     if process.returncode != 0:

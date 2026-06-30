@@ -69,7 +69,7 @@ def check_validity(target_file: Path) -> None:
     if not bigbed_to_bed_exe:
         raise RuntimeError("bigBedToBed executable not found")
 
-    cmd_args = [bigbed_to_bed_exe, "-maxItems=1", str(target_file), "/dev/null"]
+    cmd_args = [bigbed_to_bed_exe, "-maxItems=1", target_file, "/dev/null"]
     process = subprocess.run(cmd_args, stderr=subprocess.PIPE, check=False, text=True)
 
     if process.returncode != 0:
