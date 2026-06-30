@@ -25,11 +25,13 @@ Checks performed:
 4. check_nonzero_target_coverage: Checks bigChain has nonzero target coverage.
 """
 
-from contextlib import ExitStack
 from pathlib import Path
+import re
+import shutil
+import subprocess
 
 from ensembl.datacheck.functions.file_checks import file_exists
-from ensembl.datacheck.functions.io_utils import bb_bw_reader
+from ensembl.datacheck.functions.io_utils import load_bigbed_info
 
 
 def check_exist(target_file: Path) -> None:
@@ -46,7 +48,9 @@ def check_exist(target_file: Path) -> None:
 
 
 def check_validity(target_file: Path) -> None:
-    """Check that the target file is recognised as bigChain.
+    """Check that the target file is readable as bigChain.
+
+    This function requires the bigBedToBed executable.
 
     Args:
         target_file: Path of target file.
@@ -54,42 +58,41 @@ def check_validity(target_file: Path) -> None:
     Raises:
         AssertionError: If the target file is missing, unreadable, or not bigChain.
     """
-    with ExitStack() as stack:
-        try:
-            reader = stack.enter_context(bb_bw_reader(target_file))
-        except Exception as exc:
-            raise AssertionError(f"Could not open target file as bigChain: {exc}") from exc
-        try:
-            is_bigbed = reader.isBigBed()
-        except AttributeError as exc:
-            raise AssertionError(f"Could not open target file as bigChain: {exc}") from exc
-        assert is_bigbed, "The target file is not recognised as bigChain."
+    try:
+        load_bigbed_info(target_file)
+    except (RuntimeError, ValueError) as exc:
+        raise AssertionError("The target file is not recognised as bigChain.") from exc
+    except FileNotFoundError as exc:
+        raise FileNotFoundError("The target file does not exist.") from exc
+
+    bigbed_to_bed_exe = shutil.which("bigBedToBed")
+    if not bigbed_to_bed_exe:
+        raise RuntimeError("bigBedToBed executable not found")
+
+    cmd_args = [bigbed_to_bed_exe, "-maxItems=1", str(target_file), "/dev/null"]
+    process = subprocess.run(cmd_args, stderr=subprocess.PIPE, check=False, text=True)
+
+    if process.returncode != 0:
+        err_msg = process.stderr.strip()
+        read_err_regex = re.compile(fr"udc couldn't read [0-9]+ bytes from {target_file}, did read [0-9]+")
+        if read_err_regex.fullmatch(err_msg):
+            raise ValueError(f"bigChain data accessibility: {err_msg}")
+        raise RuntimeError(err_msg)
 
 
 def check_nonzero_entries(target_file: Path) -> None:
     """
-    Check that the target assembly has at least one entry.
+    Check that the bigChain file has at least one entry.
 
     Args:
         target_file: Path of target file.
 
     Raises:
-        AssertionError: If the target file is unreadable, or
-            the target assembly has no entries.
+        AssertionError: If the target bigChain file is unreadable,
+            or it has no entries.
     """
-    with bb_bw_reader(target_file) as reader:
-        try:
-            target_chrom_sizes = reader.chroms()
-        except AttributeError as exc:
-            raise AssertionError(f"Could not open target file as bigChain: {exc}") from exc
-        entry_found = False
-        for chrom_id, chrom_size in target_chrom_sizes.items():
-            for _entry in reader.entries(chrom_id, 0, chrom_size):
-                entry_found = True
-                break
-            if entry_found:
-                break
-        assert entry_found, "Target assembly has no entries."
+    bigbed_info = load_bigbed_info(target_file)
+    assert bigbed_info["itemCount"] > 0, "bigChain file has no entries."
 
 
 def check_nonzero_target_coverage(target_file: Path) -> None:
@@ -103,10 +106,5 @@ def check_nonzero_target_coverage(target_file: Path) -> None:
         AssertionError: If the target file is unreadable, or
             the target assembly has no coverage.
     """
-    with bb_bw_reader(target_file) as reader:
-        try:
-            bigchain_header = reader.header()
-        except AttributeError as exc:
-            raise AssertionError(f"Could not open target file as bigChain: {exc}") from exc
-        target_coverage = bigchain_header["nBasesCovered"]
-        assert target_coverage > 0, "Target assembly has no coverage."
+    bigbed_info = load_bigbed_info(target_file)
+    assert bigbed_info["basesCovered"] > 0, "Target assembly has no coverage."
