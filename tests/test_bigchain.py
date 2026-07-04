@@ -42,18 +42,10 @@ def _fake_subprocess_run(
 
     # To facilitate pattern matching, we simplify arguments,
     # replacing each Path with its basename.
-    simplified_args = []
-    item_name_to_path: dict[str, Path] = {}
-    for cmd_arg in cmd_args:
-        if isinstance(cmd_arg, Path):
-            item_path = cmd_arg
-            item_name = item_path.name
-            if item_name in item_name_to_path:
-                assert item_path == item_name_to_path[item_name], "each item basename must map to one Path"
-            else:
-                item_name_to_path[item_name] = item_path
-            cmd_arg = item_name
-        simplified_args.append(cmd_arg)
+    simplified_args = [
+        cmd_arg.name if isinstance(cmd_arg, Path) else cmd_arg
+        for cmd_arg in cmd_args
+    ]
 
     bigbed_info_by_file_name = {
         "human_chimp.empty.bb": dedent(
@@ -120,7 +112,7 @@ def _fake_subprocess_run(
     match simplified_args:
         case ["bigBedInfo", "human.chrom.sizes"]:
 
-            file_path = item_name_to_path["human.chrom.sizes"]
+            file_path = cmd_args[1]
             process = subprocess.CompletedProcess(
                 args=cmd_args,
                 returncode=255,
@@ -157,7 +149,7 @@ def _fake_subprocess_run(
 
         case ["bigBedInfo", "nonexistent_file.txt"]:
 
-            file_path = item_name_to_path["nonexistent_file.txt"]
+            file_path = cmd_args[1]
             process = subprocess.CompletedProcess(
                 args=cmd_args,
                 returncode=255,
@@ -185,7 +177,7 @@ def _fake_subprocess_run(
 
         case ["bigBedToBed", "-maxItems=1", "human_chimp.truncated.bb", "/dev/null"]:
 
-            file_path = item_name_to_path["human_chimp.truncated.bb"]
+            file_path = cmd_args[2]
             process = subprocess.CompletedProcess(
                 args=cmd_args,
                 returncode=255,
