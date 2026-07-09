@@ -56,7 +56,6 @@ class CheckMetadataPerRelease:
     """
 
     @pytest.fixture(autouse=True)
-    @pytest.mark.usefixtures("db_session")
     def setup(self,  db_session, request):
         """
         Prepare commonly used attributes for each test invocation.
