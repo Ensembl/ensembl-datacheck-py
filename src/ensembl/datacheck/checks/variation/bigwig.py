@@ -28,6 +28,9 @@ Checks performed:
 import warnings
 
 import numpy as np
+import pytest 
+
+
 
 from ensembl.datacheck.checks.bigwig import check_exist, check_validity
 from ensembl.datacheck.functions.file_checks import file_exists
@@ -37,6 +40,15 @@ from ensembl.datacheck.functions.vcf_sampling import (
     build_variant_list_from_source,
     get_vcf_variant_count,
 )
+
+
+# module level marker to select test per filetype and dataset type
+pytestmark = [ 
+               pytest.mark.dataset_type('short_variants'),
+               pytest.mark.file_extension("bb"), 
+               pytest.mark.file_extension("bigbed")
+            ]
+
 
 
 def _get_bigwig_variant_count(target_file, chroms=None):
