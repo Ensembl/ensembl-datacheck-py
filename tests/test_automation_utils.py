@@ -85,30 +85,47 @@ def test_get_ftp_paths_returns_paths_from_metadata_fixture():
     )
     assert "genebuild" in dataset_types
 
+    # Paths now shard the assembly accession into an NCBI/ENA-style FTP
+    # layout -- e.g. GCA/000/005/845/2/community/2018_09/genome -- rather
+    # than scientific_name/accession/.... The <accession-shard>/<provider>/
+    # <YYYY_MM> prefix is shared by every dataset type (confirmed against
+    # https://ftp.ebi.ac.uk/pub/ensemblorganisms/GCA/000/005/845/2/community/
+    # 2018_09/, which lists geneset/, genome/, and homology/ as siblings),
+    # so assembly carries the same date/provider segments as the others now
+    # -- it's no longer the odd one out.
+    #
+    # homology additionally carries its own YYYY_MM_DD sub-date after
+    # /homology -- e.g. .../homology/2023_06_15 -- distinct from the
+    # community-level YYYY_MM genebuild date in the shared prefix, since
+    # homology is computed on its own schedule.
+    common_prefix = r"^[^/]+/\d{3}/\d{3}/\d{3}/\d+/[^/]+/\d{4}_\d{2}"
     if "assembly" in path_by_dataset_type:
-        assert re.match(r"^[^/]+/[^/]+/genome$", path_by_dataset_type["assembly"])
+        assert re.match(common_prefix + r"/genome$", path_by_dataset_type["assembly"])
     if "genebuild" in path_by_dataset_type:
-        assert re.match(r"^[^/]+/[^/]+/[^/]+/geneset/\d{4}_\d{2}$", path_by_dataset_type["genebuild"])
+        assert re.match(common_prefix + r"/geneset$", path_by_dataset_type["genebuild"])
     if "homologies" in path_by_dataset_type:
-        assert re.match(r"^[^/]+/[^/]+/[^/]+/homology/\d{4}_\d{2}$", path_by_dataset_type["homologies"])
+        assert re.match(common_prefix + r"/homology/\d{4}_\d{2}_\d{2}$", path_by_dataset_type["homologies"])
     if "regulation" in path_by_dataset_type:
-        assert re.match(r"^[^/]+/[^/]+/[^/]+/regulation$", path_by_dataset_type["regulation"])
+        assert re.match(common_prefix + r"/regulation$", path_by_dataset_type["regulation"])
     if "variation" in path_by_dataset_type:
-        assert re.match(r"^[^/]+/[^/]+/[^/]+/variation/\d{4}_\d{2}$", path_by_dataset_type["variation"])
+        assert re.match(common_prefix + r"/variation$", path_by_dataset_type["variation"])
 
+    # Every dataset type now shares the exact same prefix (accession shard +
+    # provider + date) -- unlike before, assembly is no longer a shorter
+    # prefix of the others, it's an equal peer. homology's own sub-date is
+    # stripped along with "/homology" since it isn't part of the shared
+    # prefix, just like it isn't for the other types.
     common_path_candidates = []
+    if "assembly" in path_by_dataset_type:
+        common_path_candidates.append(path_by_dataset_type["assembly"].removesuffix("/genome"))
     if "genebuild" in path_by_dataset_type:
-        common_path_candidates.append(path_by_dataset_type["genebuild"].split("/geneset/")[0])
+        common_path_candidates.append(path_by_dataset_type["genebuild"].removesuffix("/geneset"))
     if "homologies" in path_by_dataset_type:
         common_path_candidates.append(path_by_dataset_type["homologies"].split("/homology/")[0])
     if "regulation" in path_by_dataset_type:
         common_path_candidates.append(path_by_dataset_type["regulation"].removesuffix("/regulation"))
     if "variation" in path_by_dataset_type:
-        common_path_candidates.append(path_by_dataset_type["variation"].split("/variation/")[0])
+        common_path_candidates.append(path_by_dataset_type["variation"].removesuffix("/variation"))
 
     if common_path_candidates:
         assert len(set(common_path_candidates)) == 1
-        common_path = common_path_candidates[0]
-        if "assembly" in path_by_dataset_type:
-            base_path = path_by_dataset_type["assembly"].removesuffix("/genome")
-            assert common_path.startswith(base_path + "/")
