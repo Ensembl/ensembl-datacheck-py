@@ -176,6 +176,20 @@ def source_file(request):
         source_file = pathlib.Path(source_file).expanduser()
     return source_file
 
+
+@pytest.fixture(scope="session")
+def params(request):
+    """
+    Pytest fixture to get parsed key-value parameters from --params.
+
+    Args:
+        request (pytest.FixtureRequest): The fixture request object.
+
+    Returns:
+        dict: Parsed command-line parameters.
+    """
+    return request.config.stash.get(PARSED_PARAMS_STASH_KEY, {})
+
 # db session factory
 def _create_session_fixture(option_name):
     @pytest.fixture(scope="session")
