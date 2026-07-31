@@ -62,6 +62,10 @@ testpaths = ["src/ensembl/datacheck/checks/"]
 python_files = ["*.py"]
 python_classes = ["*"]
 python_functions = ["check_*"]
+markers = [
+    "file_extension(ext): file extension this check module handles",
+    "dataset_type(name): dataset_type this check module is for",
+]
 filterwarnings = [
     "default::ensembl.datacheck.plugin.EnsemblDatacheckWarning",
     "ignore::pytest.PytestCollectionWarning",

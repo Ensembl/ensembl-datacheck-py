@@ -101,7 +101,19 @@ class CacheManager:
         """
         Sets up the cache directory and loads previous test results if available.
 
-        If cached results are found, pytest exits early with the cached results.
+        If cached results are found, flags the hit on config (config.datacheck_cache_hit)
+        instead of calling pytest.exit() directly. pytest.exit() raised from
+        pytest_configure (as this used to do) interrupts wrap_session() before
+        pytest_sessionstart has run, so pytest_sessionfinish -- and with it
+        pytest-json-report's own report-writing hook -- never fires: a cache
+        hit produced a real 0 exit code but no report_*.json at all. The
+        caller (pytest_configure) leaves the actual pytest.exit() call to
+        pytest_collection_modifyitems, which runs after pytest_sessionstart,
+        so sessionfinish still fires and a real (if empty) report gets
+        written. See that hook, and pytest_terminal_summary's matching guard
+        against re-running handle_cache_post_run on a cache hit (nothing new
+        to save, and doing so would overwrite the results file with an empty
+        summary since no tests actually ran).
         """
         results_file = self.get_results_file()
         cache_file = self.cache_dir / "cache.pkl"
@@ -110,7 +122,8 @@ class CacheManager:
             if results_file.exists() and not cache_file.exists():
                 print("Using cached results:")
                 print(results_file.read_text())
-                pytest.exit("Using cached results, exiting.", returncode=0)
+                self.config.datacheck_cache_hit = True
+                return
 
             if cache_file.exists():
                 with cache_file.open("rb") as f:
@@ -127,7 +140,9 @@ class CacheManager:
         """
         Loads previous test results from the results file if available.
 
-        If the results file is found, pytest exits early with the loaded results.
+        If the results file is found, flags the hit on config
+        (config.datacheck_cache_hit) instead of calling pytest.exit()
+        directly -- see setup_cache()'s docs for why.
 
         Raises:
             FileNotFoundError: If no previous test results are found.
@@ -136,7 +151,7 @@ class CacheManager:
         if results_file.exists():
             print("Loading previous test results:")
             print(results_file.read_text())
-            pytest.exit("Previous test results loaded, exiting.")
+            self.config.datacheck_cache_hit = True
         else:
             raise FileNotFoundError(f"No previous test results found for {self.target_file or self.database_url}")
 
