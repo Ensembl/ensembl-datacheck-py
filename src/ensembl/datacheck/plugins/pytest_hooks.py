@@ -305,7 +305,12 @@ def pytest_configure(config):
     if not config.getoption("--native-output"):
         config.pluginmanager.register(CustomSummaryPlugin(config), "custom_summary_plugin")
 
-    # Handle caching logic
+    # Handle caching logic. A cache hit is flagged on config
+    # (config.datacheck_cache_hit) rather than exited out of here directly
+    # -- see CacheManager.setup_cache()'s docs for why: pytest.exit() from
+    # pytest_configure skips pytest_sessionfinish entirely, so
+    # pytest-json-report never gets to write a report. The actual exit
+    # happens in pytest_collection_modifyitems below instead.
     target_file = config.getoption("target_file")
     database = config.getoption("--database")
     load_test_results = config.getoption("--load-test-results")
@@ -313,7 +318,8 @@ def pytest_configure(config):
         cache_manager = CacheManager(config)
         if load_test_results:
             cache_manager.load_test_results()
-        cache_manager.setup_cache()
+        if not getattr(config, "datacheck_cache_hit", False):
+            cache_manager.setup_cache()
 
     # register an additional marker for automation resources to group the test and run it
     config.addinivalue_line(
@@ -354,6 +360,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if config.getoption("--collect-only"):
         return
 
+    # Nothing to save on a cache hit -- no tests actually ran (see
+    # pytest_collection_modifyitems), so terminalreporter.stats is empty
+    # here; running handle_cache_post_run anyway would overwrite the
+    # results/cache files with that empty summary instead of leaving the
+    # genuine last-real-run data in place.
+    if getattr(config, "datacheck_cache_hit", False):
+        return
+
     target_file = config.getoption("target_file")
     database = config.getoption("--database")
     if (target_file or database) and not config.getoption("--no-cache-results"):
@@ -377,6 +391,17 @@ def pytest_sessionstart(session):
 
 # # ### JSON Report Setup on param --json-report  enabled #####
 def pytest_collection_modifyitems(items, config):
+    # The actual early-exit for a CacheManager cache hit (flagged on config
+    # in pytest_configure, see cache_manager.py's docs) happens here rather
+    # than in pytest_configure itself: pytest.exit() raised from
+    # pytest_configure interrupts wrap_session() before pytest_sessionstart
+    # has run, so pytest_sessionfinish -- and pytest-json-report's own
+    # report-writing hook with it -- never fires. Raising it here instead,
+    # after collection, still skips all the actual (expensive) check
+    # execution while leaving sessionfinish/the JSON report intact.
+    if getattr(config, "datacheck_cache_hit", False):
+        pytest.exit("Using cached results, exiting.", returncode=0)
+
     for item in items:
         callspec = getattr(item, "callspec", None)
 
