@@ -99,6 +99,7 @@ def pytest_addoption(parser):
     """
     parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
     parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
+    parser.addoption("--subsample-size", dest="subsample_size", default=10000, help="Optional number of records to subsample from target file for content checks")
     parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
     parser.addoption("--test", required=True, help="Name of the test to run")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
