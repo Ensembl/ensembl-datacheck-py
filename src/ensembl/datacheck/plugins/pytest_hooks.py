@@ -99,6 +99,7 @@ def pytest_addoption(parser):
     """
     parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
     parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
+    parser.addoption("--subsample-size", dest="subsample_size", default=10000, help="Optional number of records to subsample large target files to for content checks. Set to 0 to disable subsampling.")
     parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
     parser.addoption("--test", required=True, help="Name of the test to run")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
@@ -158,6 +159,29 @@ def target_file(request):
     if target_file:
         target_file = pathlib.Path(target_file).expanduser()
     return target_file
+
+
+@pytest.fixture
+def subsample_size(request: pytest.FixtureRequest) -> int | None:
+    """
+    Pytest fixture to get the subsample size from the command-line options.
+
+    Args:
+        request: The fixture request object.
+
+    Returns:
+        int or None: The subsample size, or None if disabled.
+    """
+
+    subsample_size_param = request.config.getoption("subsample_size")
+    if subsample_size_param is None:
+        return None
+
+    subsample_size = int(subsample_size_param)
+    if subsample_size <= 0:
+        return None
+
+    return subsample_size
 
 
 @pytest.fixture
