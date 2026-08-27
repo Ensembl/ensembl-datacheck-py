@@ -222,6 +222,7 @@ def _load_track_rows(database_file, genome_uuid):
             {
                 "track_id": row["track_id"],
                 "dataset_id": _canonical_uuid(row["dataset_id"]),
+                "dataset_id_raw": str(row["dataset_id"]),
                 "genome_id": _canonical_uuid(row["genome_id"]),
                 "specifications": set(),
                 "datafiles": json.loads(row["datafiles"]) if row["datafiles"] else {},
@@ -251,6 +252,7 @@ def _load_release_rows(database_file, genome_uuid):
     return [
         {
             "dataset_id": _canonical_uuid(row["dataset_id"]),
+            "dataset_id_raw": str(row["dataset_id"]),
             "genome_id": _canonical_uuid(row["genome_id"]),
             "release_label": row["release_label"],
         }
@@ -386,8 +388,15 @@ def _validate_expected_directory_contents(base_path, genome_uuid, track_relative
 def _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid):
     """Validate that all Track API dataset UUIDs are attached to the genome in metadata."""
     metadata_dataset_ids = {_canonical_uuid(row.dataset_uuid) for row in metadata_rows}
-    track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
-    unattached_dataset_ids = sorted(track_dataset_ids - metadata_dataset_ids)
+    track_dataset_ids = {
+        track_row["dataset_id"]: track_row["dataset_id_raw"]
+        for track_row in track_rows
+    }
+    unattached_dataset_ids = sorted(
+        raw_dataset_id
+        for dataset_id, raw_dataset_id in track_dataset_ids.items()
+        if dataset_id not in metadata_dataset_ids
+    )
     assert not unattached_dataset_ids, (
         f"Track API datasets are not attached to genome_uuid={genome_uuid} in metadata: "
         f"{unattached_dataset_ids}"
@@ -403,7 +412,7 @@ def _validate_attached_optional_datasets_have_tracks(
 ):
     """Validate that attached optional datasets are represented in the Track API database."""
     attached_optional_dataset_ids = {
-        _canonical_uuid(row.dataset_uuid)
+        _canonical_uuid(row.dataset_uuid): str(row.dataset_uuid)
         for row in metadata_rows
         if row.dataset_type_name in set(optional_dataset_names)
         and _include_metadata_row(
@@ -413,8 +422,8 @@ def _validate_attached_optional_datasets_have_tracks(
     }
     track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
     missing_track_dataset_ids = sorted(
-        dataset_id
-        for dataset_id in attached_optional_dataset_ids
+        raw_dataset_id
+        for dataset_id, raw_dataset_id in attached_optional_dataset_ids.items()
         if dataset_id not in track_dataset_ids
     )
     assert not missing_track_dataset_ids, (
@@ -458,14 +467,25 @@ def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dat
 
 def _validate_release_info(track_rows, release_rows, release_label, genome_uuid):
     """Validate Track API DatasetRelease rows for the target release label."""
-    track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
+    track_dataset_ids = {
+        track_row["dataset_id"]: track_row["dataset_id_raw"]
+        for track_row in track_rows
+    }
     release_dataset_ids = {
-        row["dataset_id"]
+        row["dataset_id"]: row["dataset_id_raw"]
         for row in release_rows
         if row["release_label"] == release_label
     }
-    missing_release_rows = sorted(track_dataset_ids - release_dataset_ids)
-    unexpected_release_rows = sorted(release_dataset_ids - track_dataset_ids)
+    missing_release_rows = sorted(
+        raw_dataset_id
+        for dataset_id, raw_dataset_id in track_dataset_ids.items()
+        if dataset_id not in release_dataset_ids
+    )
+    unexpected_release_rows = sorted(
+        raw_dataset_id
+        for dataset_id, raw_dataset_id in release_dataset_ids.items()
+        if dataset_id not in track_dataset_ids
+    )
 
     assert not missing_release_rows, (
         f"Missing tracks_datasetrelease rows for genome_uuid={genome_uuid} "
