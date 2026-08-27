@@ -232,6 +232,19 @@ def test_resolve_track_api_root_supports_alt_layout():
     ) == Path("/hps/nobackup/flicek/ensembl/production/ensembl_dumps/release-24/tracks")
 
 
+def test_resolve_track_api_root_accepts_direct_track_root(tmp_path):
+    genome_uuid = str(uuid4())
+    direct_root = tmp_path / "genome_browser" / "9"
+    (direct_root / genome_uuid[:3].lower() / genome_uuid).mkdir(parents=True)
+
+    assert track_checks._resolve_track_api_root(
+        base_path=str(direct_root),
+        genomes={"genome_uuid": genome_uuid, "release_name": 24},
+        subfolder="tracks",
+        use_alt_base_path=True,
+    ) == direct_root
+
+
 def test_resolve_track_api_database_file_supports_relative_path():
     track_root = Path("/hps/nobackup/flicek/ensembl/production/ensembl_dumps/release-24/tracks")
 
@@ -264,6 +277,14 @@ def test_required_tracks_from_config_are_expected():
         "transcripts-gene-pc-fwd",
         "transcripts-gene-pc-rev",
     }
+
+
+def test_track_directory_uses_three_character_prefix(tmp_path):
+    genome_uuid = str(uuid4())
+    expected_dir = tmp_path / genome_uuid[:3].lower() / genome_uuid
+    expected_dir.mkdir(parents=True)
+
+    assert track_checks._track_directory(tmp_path, genome_uuid) == expected_dir
 
 
 def test_check_track_api_files_passes(monkeypatch, tmp_path):

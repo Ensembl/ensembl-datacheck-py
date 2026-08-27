@@ -112,6 +112,11 @@ def _resolve_track_api_root(base_path, genomes, subfolder="", use_alt_base_path=
     )
 
     base = Path(_resolve_path_value(base_path, genomes))
+    genome_uuid = genomes["genome_uuid"]
+
+    if _looks_like_track_root(base, genome_uuid):
+        return base
+
     if use_alt_base_path:
         return base / f"release-{release_name}" / subfolder if subfolder else base / f"release-{release_name}"
     return base / subfolder / f"release_{release_name}" if subfolder else base / f"release_{release_name}"
@@ -125,9 +130,23 @@ def _resolve_track_api_database_file(database_file, track_root, genomes):
     return track_root / resolved_database_file
 
 
+def _track_directory_candidates(base_path, genome_uuid):
+    """Return the supported genome directory layout under a track root."""
+    return [Path(base_path) / genome_uuid[:3].lower() / genome_uuid]
+
+
+def _looks_like_track_root(base_path, genome_uuid):
+    """Return whether base_path already points at a track root containing genome directories."""
+    return any(candidate.is_dir() for candidate in _track_directory_candidates(base_path, genome_uuid))
+
+
 def _track_directory(base_path, genome_uuid):
     """Return the expected destination directory for a genome."""
-    return Path(base_path) / genome_uuid[:2].lower() / genome_uuid
+    candidates = _track_directory_candidates(base_path, genome_uuid)
+    existing_candidates = [candidate for candidate in candidates if candidate.is_dir()]
+    if existing_candidates:
+        return existing_candidates[0]
+    return candidates[-1]
 
 
 def _load_track_rows(database_file, genome_uuid):
@@ -256,9 +275,13 @@ def _resolve_track_datafile_path(base_path, genome_uuid, stored_path):
 def _expected_relative_path(genome_uuid, resolved_path, base_path):
     """Return a track file path relative to base_path, validating location."""
     relative_path = resolved_path.relative_to(Path(base_path))
-    expected_parent = Path(genome_uuid[:2].lower()) / genome_uuid
-    assert relative_path.parent == expected_parent, (
-        f"Track file is not in the expected genome directory {expected_parent}: {relative_path}"
+    expected_parents = {
+        candidate.relative_to(Path(base_path))
+        for candidate in _track_directory_candidates(base_path, genome_uuid)
+    }
+    assert relative_path.parent in expected_parents, (
+        f"Track file is not in an expected genome directory {sorted(str(parent) for parent in expected_parents)}: "
+        f"{relative_path}"
     )
     return relative_path
 
@@ -303,8 +326,9 @@ def _validate_expected_directory_contents(base_path, genome_uuid, track_relative
     )
 
     expected_relative_paths = {Path(file_name) for file_name in required_files}
+    genome_relative_dir = genome_dir.relative_to(Path(base_path))
     expected_relative_paths.update(
-        relative_path.relative_to(Path(genome_uuid[:2].lower()) / genome_uuid)
+        relative_path.relative_to(genome_relative_dir)
         for relative_path in track_relative_paths
     )
 
