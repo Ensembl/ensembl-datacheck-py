@@ -34,7 +34,7 @@ MetadataRow = namedtuple(
         "release_name",
         "release_type",
     ],
-    defaults=[None, None],
+    defaults=["I2", "partial"],
 )
 
 
@@ -442,6 +442,67 @@ def test_check_track_api_files_fails_when_loaded_track_file_is_missing(monkeypat
             automation_resource_config=_track_api_config(tmp_path, database_file),
             db_session=object(),
         )
+
+
+def test_check_track_api_files_allows_track_file_in_another_genome_directory(monkeypatch, tmp_path):
+    genome_uuid = str(uuid4())
+    other_genome_uuid = str(uuid4())
+    dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2024-01-01")
+    _create_track_directory(track_root, genome_uuid, dataset_uuid)
+
+    source_genome_dir = track_root / other_genome_uuid[:3].lower() / other_genome_uuid
+    source_genome_dir.mkdir(parents=True)
+    shared_track = source_genome_dir / f"{dataset_uuid}_gc.bw"
+    shared_track.touch()
+    target_track = track_root / genome_uuid[:3].lower() / genome_uuid / f"{dataset_uuid}_gc.bw"
+    target_track.unlink()
+
+    connection = sqlite3.connect(database_file)
+    try:
+        connection.execute(
+            """
+            UPDATE tracks_track
+            SET datafiles = ?
+            WHERE genome_id = ? AND datafiles LIKE ?
+            """,
+            (
+                '{"gc":"%s/%s/%s_gc.bw"}' % (
+                    other_genome_uuid[:3].lower(),
+                    other_genome_uuid,
+                    dataset_uuid,
+                ),
+                genome_uuid.replace("-", ""),
+                '%_gc.bw"}',
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2024-01-01",
+                release_name="I2",
+                release_type="partial",
+            ),
+        ],
+    )
+
+    track_checks.check_track_api_files(
+        genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
+        automation_resource_config=_track_api_config(tmp_path, database_file),
+        db_session=object(),
+    )
 
 
 def test_validate_track_file_content_uses_variation_checks_for_short_variants(monkeypatch, tmp_path):

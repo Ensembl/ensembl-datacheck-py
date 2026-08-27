@@ -27,7 +27,7 @@ Inputs:
 Checks performed:
     - the genome has tracks loaded in the Track API SQLite database
     - all required specifications are present for that genome
-    - every file listed in Track.datafiles exists on disk in the expected genome directory
+    - every file listed in Track.datafiles exists on disk
     - every ``.bb`` and ``.bw`` file passes the generic or variation file validator
     - required non-track files such as ``chrom.sizes`` and ``chrom.sizes.ncd`` are present
     - every other file in the genome directory is referenced by a loaded track
@@ -316,15 +316,12 @@ def _resolve_track_datafile_path(base_path, genome_uuid, stored_path):
     return fallback_path
 
 
-def _expected_relative_path(genome_uuid, resolved_path, base_path):
-    """Return a track file path relative to base_path, validating location."""
-    relative_path = resolved_path.relative_to(Path(base_path))
-    expected_parent = _track_directory(base_path, genome_uuid).relative_to(Path(base_path))
-    assert relative_path.parent == expected_parent, (
-        f"Track file is not in the expected genome directory for genome_uuid={genome_uuid}: "
-        f"file={resolved_path.name}, actual_path={relative_path}, expected_parent={expected_parent}"
-    )
-    return relative_path
+def _expected_relative_path(resolved_path, base_path):
+    """Return a track file path relative to base_path when it lives under that root."""
+    try:
+        return resolved_path.relative_to(Path(base_path))
+    except ValueError:
+        return None
 
 
 def _validate_track_rows(track_rows, base_path, genome_uuid, metadata_rows_by_dataset_id):
@@ -345,12 +342,13 @@ def _validate_track_rows(track_rows, base_path, genome_uuid, metadata_rows_by_da
                 f"Track file listed in SQLite does not exist for genome_uuid={genome_uuid}: {stored_path}"
             )
             _validate_track_file_content(resolved_path, metadata_row.dataset_name)
-            relative_path = _expected_relative_path(genome_uuid, resolved_path, base_path)
-            assert relative_path.name.startswith(dataset_prefix), (
+            assert resolved_path.name.startswith(dataset_prefix), (
                 f"Track file does not use the expected dataset-prefixed name {dataset_prefix}: "
-                f"{relative_path.name}"
+                f"{resolved_path.name}"
             )
-            expected_relative_paths.add(relative_path)
+            relative_path = _expected_relative_path(resolved_path, base_path)
+            if relative_path is not None:
+                expected_relative_paths.add(relative_path)
     return expected_relative_paths
 
 
@@ -371,6 +369,7 @@ def _validate_expected_directory_contents(base_path, genome_uuid, track_relative
     expected_relative_paths.update(
         relative_path.relative_to(genome_relative_dir)
         for relative_path in track_relative_paths
+        if relative_path.parent == genome_relative_dir
     )
 
     actual_relative_paths = {
