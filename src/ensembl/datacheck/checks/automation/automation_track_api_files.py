@@ -275,13 +275,10 @@ def _resolve_track_datafile_path(base_path, genome_uuid, stored_path):
 def _expected_relative_path(genome_uuid, resolved_path, base_path):
     """Return a track file path relative to base_path, validating location."""
     relative_path = resolved_path.relative_to(Path(base_path))
-    expected_parents = {
-        candidate.relative_to(Path(base_path))
-        for candidate in _track_directory_candidates(base_path, genome_uuid)
-    }
-    assert relative_path.parent in expected_parents, (
-        f"Track file is not in an expected genome directory {sorted(str(parent) for parent in expected_parents)}: "
-        f"{relative_path}"
+    expected_parent = _track_directory(base_path, genome_uuid).relative_to(Path(base_path))
+    assert relative_path.parent == expected_parent, (
+        f"Track file is not in the expected genome directory for genome_uuid={genome_uuid}: "
+        f"file={resolved_path.name}, actual_path={relative_path}, expected_parent={expected_parent}"
     )
     return relative_path
 
