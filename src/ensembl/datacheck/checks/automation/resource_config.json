@@ -33,15 +33,24 @@
               "seqs/cdna.txt.zst","seqs/cds.txt.zst","seqs/pep.txt.zst","seqs/seq.txt.zst"
             ]
         },
-        "genome_browser_files": {
+        "track_api_files": {
           "type": "dir",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps/web",
-          "subfolder": "genome_browser_files",
-            "expected_files": ["chrom.hashes",  "chrom.sizes.ncd",   "genome_report.txt",
-              "simple-features.bb", "chrom.hashes.ncd",  "contigs.bb",
-              "jump.ncd", "transcripts.bb", "chrom.sizes",
-              "gc.bw", "jump.txt"
-            ]
+          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "subfolder": "tracks",
+          "use_alt_base_path": true,
+          "database_file": "tracks.sqlite3",
+          "required_files": ["chrom.sizes", "chrom.sizes.ncd"],
+          "required_tracks": [
+            "gc",
+            "contigs",
+            "transcripts-gene-other-fwd",
+            "transcripts-gene-other-rev",
+            "transcripts-gene-pc-fwd",
+            "transcripts-gene-pc-rev"
+          ],
+          "required_datasets": ["core_tracks"],
+          "optional_datasets": ["short_variants", "regulation_tracks"],
+          "check_release_info": false
         },
         "genesearch": {
           "type": "file",
@@ -91,14 +100,6 @@
         "thoas_mongo_internal_resource_uri": {
           "ignore": "True",
           "uri": ""
-        },
-        "track_api_stage": {
-            "ignore": "True",
-            "uri": ""
-        },
-        "track_api_prod": {
-            "ignore": "True",
-            "uri": ""
         },
         "compara_dev": {
           "ignore": "True",

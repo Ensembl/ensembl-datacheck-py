@@ -192,3 +192,11 @@ def test_automation_resource_config_fixture_uses_request_options(monkeypatch):
     )
 
     assert resource_config["blast_database_files"]["base_path"] == "/cli/blastdb"
+
+
+def test_automation_resource_config_supports_track_api_files_check_release_info_override():
+    resource_config = _build_config(
+        params=["track_api_files.check_release_info=true"]
+    )
+
+    assert resource_config["track_api_files"]["check_release_info"] == "true"

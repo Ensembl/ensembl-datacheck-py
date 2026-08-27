@@ -72,7 +72,7 @@ ensembl-datacheck --test=automation/automation_blast_database_release ${COMMON_A
 ensembl-datacheck --test=automation/automation_compara_mongo_load ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_ftp_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_genesearch_expected_file ${COMMON_ARGS}
-ensembl-datacheck --test=automation/automation_genome_browser_files_expected_files ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_track_api_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_refget_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_thoas_mongo_load ${COMMON_ARGS}
 ```
