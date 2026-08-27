@@ -121,7 +121,7 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
                 dataset_uuid.replace("-", ""),
                 genome_uuid.replace("-", ""),
                 '{"contig":"%s/%s/%s_contigs.bb"}' % (
-                    genome_uuid[:2].lower(),
+                    genome_uuid[:3].lower(),
                     genome_uuid,
                     dataset_uuid.replace("-", "")[:32],
                 ),
@@ -133,7 +133,7 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
                 dataset_uuid.replace("-", ""),
                 genome_uuid.replace("-", ""),
                 '{"gc":"%s/%s/%s_gc.bw"}' % (
-                    genome_uuid[:2].lower(),
+                    genome_uuid[:3].lower(),
                     genome_uuid,
                     dataset_uuid.replace("-", "")[:32],
                 ),
@@ -145,7 +145,7 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
                 dataset_uuid.replace("-", ""),
                 genome_uuid.replace("-", ""),
                 '{"simple":"%s/%s/%s_simple-features.bb"}' % (
-                    genome_uuid[:2].lower(),
+                    genome_uuid[:3].lower(),
                     genome_uuid,
                     dataset_uuid.replace("-", "")[:32],
                 ),
@@ -157,7 +157,7 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
                 dataset_uuid.replace("-", ""),
                 genome_uuid.replace("-", ""),
                 '{"transcripts":"%s/%s/%s_transcripts.bb"}' % (
-                    genome_uuid[:2].lower(),
+                    genome_uuid[:3].lower(),
                     genome_uuid,
                     dataset_uuid.replace("-", "")[:32],
                 ),
@@ -196,9 +196,9 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
 
 
 def _create_track_directory(track_root, genome_uuid, dataset_uuid):
-    genome_dir = Path(track_root) / genome_uuid[:2].lower() / genome_uuid
+    genome_dir = Path(track_root) / genome_uuid[:3].lower() / genome_uuid
     genome_dir.mkdir(parents=True)
-    dataset_prefix = dataset_uuid.replace("-", "")
+    dataset_prefix = dataset_uuid
     for file_name in (
         "chrom.sizes",
         "chrom.sizes.ncd",
@@ -408,7 +408,7 @@ def test_check_track_api_files_fails_when_loaded_track_file_is_missing(monkeypat
     database_file = track_root / "track_api.sqlite3"
     _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2024-01-01")
     genome_dir = _create_track_directory(track_root, genome_uuid, dataset_uuid)
-    (genome_dir / f"{dataset_uuid.replace('-', '')}_gc.bw").unlink()
+    (genome_dir / f"{dataset_uuid}_gc.bw").unlink()
 
     _patch_validators(monkeypatch)
     monkeypatch.setattr(

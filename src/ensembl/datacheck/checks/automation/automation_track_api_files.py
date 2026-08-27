@@ -297,7 +297,7 @@ def _validate_track_rows(track_rows, base_path, genome_uuid, metadata_rows_by_da
         assert metadata_row is not None, (
             f"Track API dataset {track_row['dataset_id']} is not attached to genome_uuid={genome_uuid} in metadata."
         )
-        dataset_prefix = f"{track_row['dataset_id']}_"
+        dataset_prefix = f"{metadata_row.dataset_uuid}_"
         for stored_path in track_row["datafiles"].values():
             resolved_path = _resolve_track_datafile_path(base_path, genome_uuid, stored_path)
             assert resolved_path.exists(), (
