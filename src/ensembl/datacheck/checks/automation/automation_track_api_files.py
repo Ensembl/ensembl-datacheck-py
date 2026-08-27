@@ -219,7 +219,7 @@ def _load_release_rows(database_file, genome_uuid):
 
 
 def _fetch_metadata_dataset_rows(db_session, genome_uuid):
-    """Return released metadata dataset attachments for a genome."""
+    """Return non-faulty metadata dataset attachments for a genome."""
     assert db_session is not None, (
         "The track_api_files datacheck requires --database to point to "
         "the ensembl_genome_metadata database."
@@ -236,7 +236,7 @@ def _fetch_metadata_dataset_rows(db_session, genome_uuid):
         .join(Genome, Genome.genome_id == GenomeDataset.genome_id)
         .outerjoin(EnsemblRelease, EnsemblRelease.release_id == GenomeDataset.release_id)
         .filter(Genome.genome_uuid == genome_uuid)
-        .filter(Dataset.status == DatasetStatus.RELEASED)
+        .filter(Dataset.status != DatasetStatus.FAULTY)
         .all()
     )
 
@@ -352,6 +352,27 @@ def _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid):
     )
 
 
+def _validate_attached_optional_datasets_have_tracks(
+    track_rows, metadata_rows, genome_uuid, optional_dataset_names
+):
+    """Validate that attached optional datasets are represented in the Track API database."""
+    attached_optional_dataset_ids = sorted(
+        _canonical_uuid(row.dataset_uuid)
+        for row in metadata_rows
+        if row.dataset_type_name in set(optional_dataset_names)
+    )
+    track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
+    missing_track_dataset_ids = sorted(
+        dataset_id
+        for dataset_id in attached_optional_dataset_ids
+        if dataset_id not in track_dataset_ids
+    )
+    assert not missing_track_dataset_ids, (
+        f"Attached optional datasets for genome_uuid={genome_uuid} have no Track API tracks: "
+        f"{missing_track_dataset_ids}"
+    )
+
+
 def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dataset_names, optional_dataset_names):
     """Validate required and allowed dataset type names for the genome and its loaded track datasets."""
     attached_dataset_names = {row.dataset_type_name for row in metadata_rows}
@@ -444,6 +465,12 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     required_dataset_names = _split_csv_list(track_api_config.get("required_datasets"))
     optional_dataset_names = _split_csv_list(track_api_config.get("optional_datasets"))
     _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid)
+    _validate_attached_optional_datasets_have_tracks(
+        track_rows,
+        metadata_rows,
+        genome_uuid,
+        optional_dataset_names,
+    )
     metadata_rows_by_dataset_id = _validate_dataset_types(
         track_rows=track_rows,
         metadata_rows=metadata_rows,

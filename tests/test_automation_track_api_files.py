@@ -500,3 +500,81 @@ def test_check_track_api_files_fails_for_missing_required_dataset(monkeypatch, t
             automation_resource_config=_track_api_config(tmp_path, database_file),
             db_session=object(),
         )
+
+
+def test_check_track_api_files_fails_when_attached_short_variants_dataset_has_no_tracks(
+    monkeypatch, tmp_path
+):
+    genome_uuid = str(uuid4())
+    core_dataset_uuid = str(uuid4())
+    short_variants_dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, core_dataset_uuid, release_label="2024-01-01")
+    _create_track_directory(track_root, genome_uuid, core_dataset_uuid)
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=core_dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2024-01-01",
+            ),
+            MetadataRow(
+                dataset_uuid=short_variants_dataset_uuid,
+                dataset_name="variation_browser_files",
+                dataset_type_name="short_variants",
+                release_label="2024-01-01",
+            ),
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="Attached optional datasets.*have no Track API tracks"):
+        track_checks.check_track_api_files(
+            genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
+            automation_resource_config=_track_api_config(tmp_path, database_file),
+            db_session=object(),
+        )
+
+
+def test_check_track_api_files_fails_when_attached_regulation_tracks_dataset_has_no_tracks(
+    monkeypatch, tmp_path
+):
+    genome_uuid = str(uuid4())
+    core_dataset_uuid = str(uuid4())
+    regulation_dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, core_dataset_uuid, release_label="2024-01-01")
+    _create_track_directory(track_root, genome_uuid, core_dataset_uuid)
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=core_dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2024-01-01",
+            ),
+            MetadataRow(
+                dataset_uuid=regulation_dataset_uuid,
+                dataset_name="regulation_browser_files",
+                dataset_type_name="regulation_tracks",
+                release_label="2024-01-01",
+            ),
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="Attached optional datasets.*have no Track API tracks"):
+        track_checks.check_track_api_files(
+            genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
+            automation_resource_config=_track_api_config(tmp_path, database_file),
+            db_session=object(),
+        )
