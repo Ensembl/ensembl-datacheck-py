@@ -89,6 +89,8 @@ def _release_sort_value(value):
     """Return a comparable value for release names."""
     if value is None:
         return None
+    if isinstance(value, int):
+        return value
     text = str(value).strip()
     if text.isdigit():
         return int(text)
@@ -102,7 +104,24 @@ def _is_release_at_or_after_cutoff(release_name, cutoff_release_name):
 
     release_value = _release_sort_value(release_name)
     cutoff_value = _release_sort_value(cutoff_release_name)
-    return release_value >= cutoff_value
+    if isinstance(release_value, int) and isinstance(cutoff_value, int):
+        return release_value >= cutoff_value
+    if isinstance(release_value, str) and isinstance(cutoff_value, str):
+        return release_value >= cutoff_value
+    return False
+
+
+def _include_metadata_row(row, ignore_attached_optional_datasets_from_release=None):
+    """Return whether a metadata attachment should participate in Track API checks."""
+    if getattr(row, "release_type", None) != "partial":
+        return False
+    if getattr(row, "dataset_type_name", None) in {"short_variants", "regulation_tracks"}:
+        if _is_release_at_or_after_cutoff(
+            getattr(row, "release_name", None),
+            ignore_attached_optional_datasets_from_release,
+        ):
+            return False
+    return True
 
 
 def _resolve_path_value(value, genomes):
@@ -252,6 +271,7 @@ def _fetch_metadata_dataset_rows(db_session, genome_uuid):
             DatasetType.name.label("dataset_type_name"),
             EnsemblRelease.name.label("release_name"),
             EnsemblRelease.label.label("release_label"),
+            EnsemblRelease.release_type.label("release_type"),
         )
         .join(DatasetType, Dataset.dataset_type_id == DatasetType.dataset_type_id)
         .join(GenomeDataset, Dataset.dataset_id == GenomeDataset.dataset_id)
@@ -386,9 +406,9 @@ def _validate_attached_optional_datasets_have_tracks(
         _canonical_uuid(row.dataset_uuid)
         for row in metadata_rows
         if row.dataset_type_name in set(optional_dataset_names)
-        and not _is_release_at_or_after_cutoff(
-            getattr(row, "release_name", None),
-            ignore_attached_optional_datasets_from_release,
+        and _include_metadata_row(
+            row,
+            ignore_attached_optional_datasets_from_release=ignore_attached_optional_datasets_from_release,
         )
     }
     track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
@@ -497,6 +517,14 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     ignore_optional_from_release = track_api_config.get(
         "ignore_attached_optional_datasets_from_release"
     )
+    metadata_rows = [
+        row
+        for row in metadata_rows
+        if _include_metadata_row(
+            row,
+            ignore_attached_optional_datasets_from_release=ignore_optional_from_release,
+        )
+    ]
     _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid)
     _validate_attached_optional_datasets_have_tracks(
         track_rows,
