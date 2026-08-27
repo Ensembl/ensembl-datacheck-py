@@ -22,7 +22,7 @@ Inputs:
     - deployed track root from ``track_api_files.base_path``
     - required non-track files from ``track_api_files.required_files``
     - required Track API specifications from ``track_api_files.required_tracks``
-    - required and optional dataset names from the automation resource config
+    - required and optional dataset type names from the automation resource config
 
 Checks performed:
     - the genome has tracks loaded in the Track API SQLite database
@@ -31,8 +31,8 @@ Checks performed:
     - every ``.bb`` and ``.bw`` file passes the generic or variation file validator
     - required non-track files such as ``chrom.sizes`` and ``chrom.sizes.ncd`` are present
     - every other file in the genome directory is referenced by a loaded track
-    - every loaded Track API dataset is attached to the genome in metadata and uses an allowed dataset name
-    - required dataset names are attached to the genome, and optional dataset names are allowed
+    - every loaded Track API dataset is attached to the genome in metadata and uses an allowed dataset type
+    - required dataset types are attached to the genome, and optional dataset types are allowed
     - optionally, release information in ``tracks_datasetrelease`` matches the genome release label
 """
 
@@ -45,7 +45,14 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from ensembl.production.metadata.api.models import Dataset, DatasetStatus, EnsemblRelease, Genome, GenomeDataset
+from ensembl.production.metadata.api.models import (
+    Dataset,
+    DatasetStatus,
+    DatasetType,
+    EnsemblRelease,
+    Genome,
+    GenomeDataset,
+)
 
 
 def _bool_param(value, default=False):
@@ -202,8 +209,10 @@ def _fetch_metadata_dataset_rows(db_session, genome_uuid):
         db_session.query(
             Dataset.dataset_uuid.label("dataset_uuid"),
             Dataset.name.label("dataset_name"),
+            DatasetType.name.label("dataset_type_name"),
             EnsemblRelease.label.label("release_label"),
         )
+        .join(DatasetType, Dataset.dataset_type_id == DatasetType.dataset_type_id)
         .join(GenomeDataset, Dataset.dataset_id == GenomeDataset.dataset_id)
         .join(Genome, Genome.genome_id == GenomeDataset.genome_id)
         .outerjoin(EnsemblRelease, EnsemblRelease.release_id == GenomeDataset.release_id)
@@ -323,12 +332,12 @@ def _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid):
 
 
 def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dataset_names, optional_dataset_names):
-    """Validate required and allowed dataset names for the genome and its loaded track datasets."""
-    attached_dataset_names = {row.dataset_name for row in metadata_rows}
+    """Validate required and allowed dataset type names for the genome and its loaded track datasets."""
+    attached_dataset_names = {row.dataset_type_name for row in metadata_rows}
     allowed_dataset_names = set(required_dataset_names) | set(optional_dataset_names)
     missing_required_dataset_names = sorted(set(required_dataset_names) - attached_dataset_names)
     assert not missing_required_dataset_names, (
-        f"Missing required attached datasets for genome_uuid={genome_uuid}: "
+        f"Missing required attached dataset types for genome_uuid={genome_uuid}: "
         f"{missing_required_dataset_names}"
     )
 
@@ -338,14 +347,18 @@ def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dat
     }
     disallowed_track_datasets = sorted(
         {
-            f"{track_row['dataset_id']}:{metadata_rows_by_dataset_id[track_row['dataset_id']].dataset_name}"
+            (
+                f"{track_row['dataset_id']}:"
+                f"{metadata_rows_by_dataset_id[track_row['dataset_id']].dataset_type_name}"
+            )
             for track_row in track_rows
             if track_row["dataset_id"] in metadata_rows_by_dataset_id
-            and metadata_rows_by_dataset_id[track_row["dataset_id"]].dataset_name not in allowed_dataset_names
+            and metadata_rows_by_dataset_id[track_row["dataset_id"]].dataset_type_name
+            not in allowed_dataset_names
         }
     )
     assert not disallowed_track_datasets, (
-        f"Track API datasets for genome_uuid={genome_uuid} use unsupported dataset names: "
+        f"Track API datasets for genome_uuid={genome_uuid} use unsupported dataset types: "
         f"{disallowed_track_datasets}"
     )
     return metadata_rows_by_dataset_id

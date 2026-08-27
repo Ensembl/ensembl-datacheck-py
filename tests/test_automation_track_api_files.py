@@ -26,7 +26,7 @@ from ensembl.datacheck.checks.automation import automation_track_api_files as tr
 
 MetadataRow = namedtuple(
     "MetadataRow",
-    ["dataset_uuid", "dataset_name", "release_label"],
+    ["dataset_uuid", "dataset_name", "dataset_type_name", "release_label"],
 )
 
 
@@ -281,7 +281,8 @@ def test_check_track_api_files_passes(monkeypatch, tmp_path):
         lambda db_session, genome_id: [
             MetadataRow(
                 dataset_uuid=dataset_uuid,
-                dataset_name="core_tracks",
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
                 release_label="2024-01-01",
             ),
         ],
@@ -310,7 +311,8 @@ def test_check_track_api_files_fails_on_unexpected_file(monkeypatch, tmp_path):
         lambda db_session, genome_id: [
             MetadataRow(
                 dataset_uuid=dataset_uuid,
-                dataset_name="core_tracks",
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
                 release_label="2024-01-01",
             ),
         ],
@@ -358,7 +360,8 @@ def test_check_track_api_files_optional_release_validation(monkeypatch, tmp_path
         lambda db_session, genome_id: [
             MetadataRow(
                 dataset_uuid=dataset_uuid,
-                dataset_name="core_tracks",
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
                 release_label="2024-01-01",
             ),
         ],
@@ -393,7 +396,8 @@ def test_check_track_api_files_fails_when_loaded_track_file_is_missing(monkeypat
         lambda db_session, genome_id: [
             MetadataRow(
                 dataset_uuid=dataset_uuid,
-                dataset_name="core_tracks",
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
                 release_label="2024-01-01",
             ),
         ],
@@ -462,13 +466,14 @@ def test_check_track_api_files_fails_for_missing_required_dataset(monkeypatch, t
         lambda db_session, genome_id: [
             MetadataRow(
                 dataset_uuid=dataset_uuid,
-                dataset_name="short_variants",
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="short_variants",
                 release_label="2024-01-01",
             ),
         ],
     )
 
-    with pytest.raises(AssertionError, match="Missing required attached datasets"):
+    with pytest.raises(AssertionError, match="Missing required attached dataset types"):
         track_checks.check_track_api_files(
             genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
             automation_resource_config=_track_api_config(tmp_path, database_file),
