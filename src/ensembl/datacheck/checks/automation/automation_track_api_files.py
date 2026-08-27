@@ -33,6 +33,7 @@ Checks performed:
     - every other file in the genome directory is referenced by a loaded track
     - every loaded Track API dataset is attached to the genome in metadata and uses an allowed dataset type
     - required dataset types are attached to the genome, and optional dataset types are allowed
+    - optional dataset attachments can be ignored for reverse-checking from a configured release onward
     - optionally, release information in ``tracks_datasetrelease`` matches the genome release label
 """
 
@@ -82,6 +83,26 @@ def _split_csv_list(value):
     if isinstance(value, (list, tuple, set)):
         return [str(item).strip() for item in value if str(item).strip()]
     return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def _release_sort_value(value):
+    """Return a comparable value for release names."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text.isdigit():
+        return int(text)
+    return text
+
+
+def _is_release_at_or_after_cutoff(release_name, cutoff_release_name):
+    """Return whether release_name is at or after the configured cutoff."""
+    if cutoff_release_name in (None, "") or release_name in (None, ""):
+        return False
+
+    release_value = _release_sort_value(release_name)
+    cutoff_value = _release_sort_value(cutoff_release_name)
+    return release_value >= cutoff_value
 
 
 def _resolve_path_value(value, genomes):
@@ -229,6 +250,7 @@ def _fetch_metadata_dataset_rows(db_session, genome_uuid):
             Dataset.dataset_uuid.label("dataset_uuid"),
             Dataset.name.label("dataset_name"),
             DatasetType.name.label("dataset_type_name"),
+            EnsemblRelease.name.label("release_name"),
             EnsemblRelease.label.label("release_label"),
         )
         .join(DatasetType, Dataset.dataset_type_id == DatasetType.dataset_type_id)
@@ -353,14 +375,22 @@ def _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid):
 
 
 def _validate_attached_optional_datasets_have_tracks(
-    track_rows, metadata_rows, genome_uuid, optional_dataset_names
+    track_rows,
+    metadata_rows,
+    genome_uuid,
+    optional_dataset_names,
+    ignore_attached_optional_datasets_from_release=None,
 ):
     """Validate that attached optional datasets are represented in the Track API database."""
-    attached_optional_dataset_ids = sorted(
+    attached_optional_dataset_ids = {
         _canonical_uuid(row.dataset_uuid)
         for row in metadata_rows
         if row.dataset_type_name in set(optional_dataset_names)
-    )
+        and not _is_release_at_or_after_cutoff(
+            getattr(row, "release_name", None),
+            ignore_attached_optional_datasets_from_release,
+        )
+    }
     track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
     missing_track_dataset_ids = sorted(
         dataset_id
@@ -464,12 +494,16 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     metadata_rows = _fetch_metadata_dataset_rows(db_session, genome_uuid)
     required_dataset_names = _split_csv_list(track_api_config.get("required_datasets"))
     optional_dataset_names = _split_csv_list(track_api_config.get("optional_datasets"))
+    ignore_optional_from_release = track_api_config.get(
+        "ignore_attached_optional_datasets_from_release"
+    )
     _validate_dataset_attachments(track_rows, metadata_rows, genome_uuid)
     _validate_attached_optional_datasets_have_tracks(
         track_rows,
         metadata_rows,
         genome_uuid,
         optional_dataset_names,
+        ignore_attached_optional_datasets_from_release=ignore_optional_from_release,
     )
     metadata_rows_by_dataset_id = _validate_dataset_types(
         track_rows=track_rows,

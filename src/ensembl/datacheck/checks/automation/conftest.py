@@ -42,6 +42,7 @@ AUTOMATION_CONFIG_FIELDS = (
     "required_tracks",
     "required_datasets",
     "optional_datasets",
+    "ignore_attached_optional_datasets_from_release",
     "check_release_info",
     "subfolder",
     "ignore",

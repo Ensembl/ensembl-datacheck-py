@@ -50,6 +50,7 @@
           ],
           "required_datasets": ["core_tracks"],
           "optional_datasets": ["short_variants", "regulation_tracks"],
+          "ignore_attached_optional_datasets_from_release": null,
           "check_release_info": false
         },
         "genesearch": {
