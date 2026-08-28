@@ -414,10 +414,6 @@ def _validate_attached_optional_datasets_have_tracks(
         _canonical_uuid(row.dataset_uuid): str(row.dataset_uuid)
         for row in metadata_rows
         if row.dataset_type_name in set(optional_dataset_names)
-        and _include_metadata_row(
-            row,
-            ignore_attached_optional_datasets_from_release=ignore_attached_optional_datasets_from_release,
-        )
     }
     track_dataset_ids = {track_row["dataset_id"] for track_row in track_rows}
     missing_track_dataset_ids = sorted(
@@ -464,22 +460,41 @@ def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dat
     return metadata_rows_by_dataset_id
 
 
-def _validate_release_info(track_rows, release_rows, metadata_rows, genome_uuid):
+def _validate_release_info(
+    track_rows,
+    release_rows,
+    metadata_rows,
+    genome_uuid,
+    optional_dataset_names,
+    ignore_attached_optional_datasets_from_release=None,
+):
     """Validate Track API DatasetRelease rows against the participating metadata attachments."""
     track_dataset_ids = {
         track_row["dataset_id"]: track_row["dataset_id_raw"]
         for track_row in track_rows
+    }
+    ignored_release_pairs = {
+        (_canonical_uuid(row.dataset_uuid), row.release_label)
+        for row in metadata_rows
+        if row.release_label is not None
+        and row.dataset_type_name in set(optional_dataset_names)
+        and _is_release_at_or_after_cutoff(
+            getattr(row, "release_name", None),
+            ignore_attached_optional_datasets_from_release,
+        )
     }
     expected_release_pairs = {
         (_canonical_uuid(row.dataset_uuid), row.release_label)
         for row in metadata_rows
         if row.release_label is not None
         and _canonical_uuid(row.dataset_uuid) in track_dataset_ids
+        and (_canonical_uuid(row.dataset_uuid), row.release_label) not in ignored_release_pairs
     }
     actual_release_pairs = {
         (row["dataset_id"], row["release_label"]): row["dataset_id_raw"]
         for row in release_rows
         if row["dataset_id"] in track_dataset_ids
+        and (row["dataset_id"], row["release_label"]) not in ignored_release_pairs
     }
 
     missing_release_rows = sorted(
@@ -593,4 +608,11 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
 
     if _bool_param(track_api_config.get("check_release_info"), default=False):
         release_rows = _load_release_rows(str(database_file), genome_uuid)
-        _validate_release_info(track_rows, release_rows, release_metadata_rows, genome_uuid)
+        _validate_release_info(
+            track_rows,
+            release_rows,
+            release_metadata_rows,
+            genome_uuid,
+            optional_dataset_names,
+            ignore_attached_optional_datasets_from_release=ignore_optional_from_release,
+        )
