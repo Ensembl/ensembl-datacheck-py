@@ -464,35 +464,42 @@ def _validate_dataset_types(track_rows, metadata_rows, genome_uuid, required_dat
     return metadata_rows_by_dataset_id
 
 
-def _validate_release_info(track_rows, release_rows, release_label, genome_uuid):
-    """Validate Track API DatasetRelease rows for the target release label."""
+def _validate_release_info(track_rows, release_rows, metadata_rows, genome_uuid):
+    """Validate Track API DatasetRelease rows against the participating metadata attachments."""
     track_dataset_ids = {
         track_row["dataset_id"]: track_row["dataset_id_raw"]
         for track_row in track_rows
     }
-    release_dataset_ids = {
-        row["dataset_id"]: row["dataset_id_raw"]
-        for row in release_rows
-        if row["release_label"] == release_label
+    expected_release_pairs = {
+        (_canonical_uuid(row.dataset_uuid), row.release_label)
+        for row in metadata_rows
+        if row.release_label is not None
+        and _canonical_uuid(row.dataset_uuid) in track_dataset_ids
     }
+    actual_release_pairs = {
+        (row["dataset_id"], row["release_label"]): row["dataset_id_raw"]
+        for row in release_rows
+        if row["dataset_id"] in track_dataset_ids
+    }
+
     missing_release_rows = sorted(
-        raw_dataset_id
-        for dataset_id, raw_dataset_id in track_dataset_ids.items()
-        if dataset_id not in release_dataset_ids
+        f"{track_dataset_ids[dataset_id]}@{release_label}"
+        for dataset_id, release_label in expected_release_pairs
+        if (dataset_id, release_label) not in actual_release_pairs
     )
     unexpected_release_rows = sorted(
-        raw_dataset_id
-        for dataset_id, raw_dataset_id in release_dataset_ids.items()
-        if dataset_id not in track_dataset_ids
+        f"{raw_dataset_id}@{release_label}"
+        for (dataset_id, release_label), raw_dataset_id in actual_release_pairs.items()
+        if (dataset_id, release_label) not in expected_release_pairs
     )
 
     assert not missing_release_rows, (
-        f"Missing tracks_datasetrelease rows for genome_uuid={genome_uuid} "
-        f"and release_label={release_label}: {missing_release_rows}"
+        f"Missing tracks_datasetrelease rows for genome_uuid={genome_uuid}: "
+        f"{missing_release_rows}"
     )
     assert not unexpected_release_rows, (
-        f"Unexpected tracks_datasetrelease rows for genome_uuid={genome_uuid} "
-        f"and release_label={release_label}: {unexpected_release_rows}"
+        f"Unexpected tracks_datasetrelease rows for genome_uuid={genome_uuid}: "
+        f"{unexpected_release_rows}"
     )
 
 
@@ -531,6 +538,7 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     assert track_rows, f"No Track API tracks found in SQLite for genome_uuid={genome_uuid}"
 
     metadata_rows = _fetch_metadata_dataset_rows(db_session, genome_uuid)
+    release_metadata_rows = list(metadata_rows)
     required_dataset_names = _split_csv_list(track_api_config.get("required_datasets"))
     optional_dataset_names = _split_csv_list(track_api_config.get("optional_datasets"))
     ignore_optional_from_release = track_api_config.get(
@@ -584,7 +592,5 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     )
 
     if _bool_param(track_api_config.get("check_release_info"), default=False):
-        release_label = genomes.get("release_label")
-        assert release_label is not None, f"Missing release_label for genome_uuid={genome_uuid}"
         release_rows = _load_release_rows(str(database_file), genome_uuid)
-        _validate_release_info(track_rows, release_rows, release_label, genome_uuid)
+        _validate_release_info(track_rows, release_rows, release_metadata_rows, genome_uuid)

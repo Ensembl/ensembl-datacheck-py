@@ -400,7 +400,7 @@ def test_check_track_api_files_optional_release_validation(monkeypatch, tmp_path
         ],
     )
 
-    with pytest.raises(AssertionError, match="Missing tracks_datasetrelease rows"):
+    with pytest.raises(AssertionError, match=r"Missing tracks_datasetrelease rows.*@2024-01-01"):
         track_checks.check_track_api_files(
             genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
             automation_resource_config={
@@ -411,6 +411,101 @@ def test_check_track_api_files_optional_release_validation(monkeypatch, tmp_path
             },
             db_session=object(),
         )
+
+
+def test_check_track_api_files_release_validation_uses_metadata_release_labels(monkeypatch, tmp_path):
+    genome_uuid = str(uuid4())
+    dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2025-08-13")
+    _create_track_directory(track_root, genome_uuid, dataset_uuid)
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2025-08-13",
+                release_name="I2",
+                release_type="partial",
+            ),
+        ],
+    )
+
+    track_checks.check_track_api_files(
+        genomes={"genome_uuid": genome_uuid, "release_label": "2025-06-30"},
+        automation_resource_config={
+            "track_api_files": {
+                **_track_api_config(tmp_path, database_file)["track_api_files"],
+                "check_release_info": True,
+            }
+        },
+        db_session=object(),
+    )
+
+
+def test_check_track_api_files_release_validation_uses_all_metadata_release_labels(
+    monkeypatch, tmp_path
+):
+    genome_uuid = str(uuid4())
+    dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2025-08-13")
+    _create_track_directory(track_root, genome_uuid, dataset_uuid)
+
+    connection = sqlite3.connect(database_file)
+    try:
+        connection.execute(
+            """
+            INSERT INTO tracks_datasetrelease (dataset_id, genome_id, release_label)
+            VALUES (?, ?, ?)
+            """,
+            (dataset_uuid.replace("-", ""), genome_uuid.replace("-", ""), "2026-08-25"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2025-08-13",
+                release_name="I2",
+                release_type="partial",
+            ),
+            MetadataRow(
+                dataset_uuid=dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2026-08-25",
+                release_name=29,
+                release_type="regular",
+            ),
+        ],
+    )
+
+    track_checks.check_track_api_files(
+        genomes={"genome_uuid": genome_uuid, "release_label": "2025-06-30"},
+        automation_resource_config={
+            "track_api_files": {
+                **_track_api_config(tmp_path, database_file)["track_api_files"],
+                "check_release_info": True,
+            }
+        },
+        db_session=object(),
+    )
 
 
 def test_check_track_api_files_fails_when_loaded_track_file_is_missing(monkeypatch, tmp_path):
