@@ -99,3 +99,6 @@ db.sqlite3
 *.bak
 *.orig
 /build/
+
+# Datachecks output files
+.report.json

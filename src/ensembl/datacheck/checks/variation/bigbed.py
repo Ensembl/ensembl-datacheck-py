@@ -31,11 +31,10 @@ import warnings
 import pytest 
 from ensembl.datacheck.checks.bigbed import check_exist, check_validity
 from ensembl.datacheck.functions.file_checks import file_exists
-from ensembl.datacheck.functions.io_utils import bb_bw_reader
+from ensembl.datacheck.functions.bb_bw_utils import bb_bw_reader
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
-from ensembl.datacheck.functions.vcf_sampling import (
-    build_variant_list_from_source,
-    get_vcf_variant_count,
+from ensembl.datacheck.functions.vcf_utils import (
+    get_vcf_variant_count
 )
 
 # module level marker to select test per filetype and dataset type
@@ -136,14 +135,13 @@ def check_compare_count_with_source(target_file, source_file):
     )
 
 
-def check_variant_exist_from_source(target_file, source_file, variation_params):
+def check_variant_exist_from_source(target_file, source_variants_subsample):
     """
     Check that sampled source variants exist in target BigBed entries.
 
     Args:
         target_file (pathlib.Path or None): Path to target BigBed file.
-        source_file (pathlib.Path or None): Path to source VCF file.
-        variation_params (dict): Variation-specific parsed command-line params.
+        source_variants_subsample (dict): A subsample of variants from the source file to check.
 
     Warns:
         EnsemblDatacheckWarning: If no source variants are sampled; validation
@@ -154,11 +152,8 @@ def check_variant_exist_from_source(target_file, source_file, variation_params):
             source variants are not represented in BigBed.
     """
     assert file_exists(target_file), "The target file does not exist."
-    assert source_file is not None, "A source file is required (--source-file)."
-    assert file_exists(source_file), "The source file does not exist."
 
-    variant_list = build_variant_list_from_source(source_file, variation_params)
-    if not variant_list:
+    if not source_variants_subsample:
         warnings.warn(
             EnsemblDatacheckWarning(
                 "No source variants were sampled; no BigBed ID comparisons were performed. "
@@ -175,9 +170,9 @@ def check_variant_exist_from_source(target_file, source_file, variation_params):
         assert reader is not None, "Could not open target file as BigBed."
         assert reader.isBigBed(), "The target file is not recognised as BigBed."
 
-        for variant_id in variant_list:
-            chrom = variant_list[variant_id]["chrom"]
-            start = variant_list[variant_id]["pos"] - 1
+        for variant_id in source_variants_subsample:
+            chrom = source_variants_subsample[variant_id]["chrom"]
+            start = source_variants_subsample[variant_id]["pos"] - 1
             end = start + 2
 
             bb_entries = reader.entries(chrom, start, end)

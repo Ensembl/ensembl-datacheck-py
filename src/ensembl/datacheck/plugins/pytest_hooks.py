@@ -143,8 +143,8 @@ def pytest_runtest_setup(item):
             pytest.skip(f"test requires automation_resource in {automation_resource!r}")
 
 
-@pytest.fixture
-def target_file(request):
+@pytest.fixture(scope="session")
+def target_file(request) -> pathlib.Path | None:
     """
     Pytest fixture to get the target file path from the command-line options.
 
@@ -155,13 +155,15 @@ def target_file(request):
         pathlib.Path or None: The target file path, or None if not provided.
     """
     target_file = request.config.getoption("target_file")
-    if target_file:
-        target_file = pathlib.Path(target_file).expanduser()
-    return target_file
+
+    if not target_file:
+        return None
+
+    return pathlib.Path(str(target_file)).expanduser()
 
 
-@pytest.fixture
-def source_file(request):
+@pytest.fixture(scope="session")
+def source_file(request) -> pathlib.Path | None:
     """
     Pytest fixture to get the source file path from the command-line options.
 
@@ -172,18 +174,19 @@ def source_file(request):
         pathlib.Path or None: The source file path, or None if not provided.
     """
     source_file = request.config.getoption("source_file")
-    if source_file:
-        source_file = pathlib.Path(source_file).expanduser()
-    return source_file
+    if not source_file:
+        return None
+
+    return pathlib.Path(str(source_file)).expanduser()
 
 
 @pytest.fixture(scope="session")
-def params(request):
+def params(request: pytest.FixtureRequest) -> dict[str, str]:
     """
     Pytest fixture to get parsed key-value parameters from --params.
 
     Args:
-        request (pytest.FixtureRequest): The fixture request object.
+        request: The fixture request object.
 
     Returns:
         dict: Parsed command-line parameters.
