@@ -37,6 +37,13 @@ AUTOMATION_ENV_PREFIX = "ENSEMBL_DATACHECK_"
 AUTOMATION_CONFIG_FIELDS = (
     "expected_files",
     "base_path",
+    "database_file",
+    "required_files",
+    "required_tracks",
+    "required_datasets",
+    "optional_datasets",
+    "ignore_attached_optional_datasets_from_release",
+    "check_release_info",
     "subfolder",
     "ignore",
     "type",
