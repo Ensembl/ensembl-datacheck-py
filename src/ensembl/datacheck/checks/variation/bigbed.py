@@ -136,13 +136,14 @@ def check_compare_count_with_source(target_file, source_file):
     )
 
 
-def check_variant_exist_from_source(target_file, source_file, variation_params):
+def check_variant_exist_from_source(source_file, subsample_size, target_file, variation_params):
     """
     Check that sampled source variants exist in target BigBed entries.
 
     Args:
-        target_file (pathlib.Path or None): Path to target BigBed file.
         source_file (pathlib.Path or None): Path to source VCF file.
+        subsample_size (int): Number of source variants to sample.
+        target_file (pathlib.Path or None): Path to target BigBed file.
         variation_params (dict): Variation-specific parsed command-line params.
 
     Warns:
@@ -157,7 +158,7 @@ def check_variant_exist_from_source(target_file, source_file, variation_params):
     assert source_file is not None, "A source file is required (--source-file)."
     assert file_exists(source_file), "The source file does not exist."
 
-    variant_list = build_variant_list_from_source(source_file, variation_params)
+    variant_list = build_variant_list_from_source(source_file, variation_params, subsample_size)
     if not variant_list:
         warnings.warn(
             EnsemblDatacheckWarning(
