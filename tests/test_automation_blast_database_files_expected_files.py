@@ -196,6 +196,6 @@ def test_resource_config_defines_blast_database_files():
     assert config["blast_database_files"]["base_path"] == (
         "/hps/nobackup/flicek/ensembl/production/ensembl_dumps"
     )
-    assert config["blast_database_files"]["subfolder"] == "blast_db"
+    assert config["blast_database_files"]["subfolder"] == "blastdbs"
     assert "alt_base_path" not in config["blast_database_files"]
     assert config["blast_database_files"]["expected_files"] == BLAST_DATABASE_EXPECTED_FILES

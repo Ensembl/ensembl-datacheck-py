@@ -42,7 +42,16 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
     assert base_path, f"Missing {resource_key}.base_path in automation resource config."
 
     subfolder = resource_config.get("subfolder", "")
-    if subfolder:
+    use_alt = resource_config.get("use_alt_base_path", False)
+    if use_alt:
+        release_name = genomes.get("release_name")
+        assert release_name is not None, f"Missing release_name for genome_uuid={genomes['genome_uuid']}"
+        release_path = Path(base_path) / f"release-{release_name}"
+        base_path = str(release_path / subfolder) if subfolder else str(release_path)
+        assert Path(base_path).is_dir(), (
+            f"{resource_key} path does not exist for genome_uuid={genomes['genome_uuid']}: {base_path}"
+        )
+    elif subfolder:
         base_path = str(Path(base_path) / subfolder)
 
     expected_files = resource_config.get("expected_files", [])
@@ -118,7 +127,7 @@ def check_ftp_dumps_homology_expected_files(user_cli, genomes, automation_resour
 @pytest.mark.automation_resource("ftp_dumps_vep_geneset")
 def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_geneset."""
-    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'vep_gff_location')
+    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'genebuild')
 
 
 @pytest.mark.automation_resource("all")
@@ -127,4 +136,4 @@ def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_res
 def check_ftp_dumps_vep_genome_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_genome."""
     logging.info("Starting check for ftp_dumps_vep_genome expected files for genome_uuid=%s", genomes['genome_uuid'])
-    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'vep_faa_location')
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'assembly')

@@ -69,6 +69,43 @@ def test_check_ftp_resource_accepts_list_of_dataset_paths(monkeypatch):
     assert "ftp_dumps_geneset" in captured["resource_label"]
 
 
+def test_check_ftp_resource_uses_alt_base_path(monkeypatch, tmp_path):
+    captured = {}
+    alt_base = tmp_path / "release-2026_05" / "ftp_dumps"
+    alt_base.mkdir(parents=True)
+
+    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid):
+        return [{"dataset_type": "assembly", "path": "species/path/genome"}]
+
+    def _fake_validate_expected_files(base_path, relative_path, expected_files, resource_label):
+        captured["base_path"] = base_path
+        captured["relative_path"] = relative_path
+
+    monkeypatch.setattr(ftp_checks, "get_ftp_paths", _fake_get_ftp_paths)
+    monkeypatch.setattr(ftp_checks, "validate_expected_files", _fake_validate_expected_files)
+
+    ftp_checks._check_ftp_resource(
+        user_cli=_DummyCli({
+            "--database": "sqlite:///metadata.db",
+            "--taxonomy_database": "sqlite:///taxonomy.db",
+        }),
+        genomes={"genome_uuid": "uuid-1", "release_name": "2026_05"},
+        automation_resource_config={
+            "ftp_dumps_genomes": {
+                "base_path": str(tmp_path),
+                "subfolder": "ftp_dumps",
+                "use_alt_base_path": True,
+                "expected_files": ["unmasked.fa.bgz"],
+            }
+        },
+        resource_key="ftp_dumps_genomes",
+        dataset_name="assembly",
+    )
+
+    assert captured["base_path"] == str(alt_base)
+    assert captured["relative_path"] == "species/path/genome"
+
+
 def test_check_ftp_resource_fails_with_clear_message_when_dataset_missing(monkeypatch):
     def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid):
         return [{"dataset_type": "genebuild", "path": "species/path/geneset/2026_05"}]
