@@ -40,6 +40,32 @@ def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None ) :
         return {dataset_name: file_location}
     return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
 
+def resolve_genome_relative_path(base_path, release_root_relative, genome_uuid, resource_label):
+    """Resolve <release_root>/<genome_uuid>, allowing one extra level (e.g. run_id) before genome_uuid."""
+    base = Path(base_path)
+    release_root = base / release_root_relative
+    assert release_root.is_dir(), f"Release directory does not exist: {release_root}"
+
+    direct_relative = Path(release_root_relative) / genome_uuid
+    if (base / direct_relative).is_dir():
+        return direct_relative
+
+    nested_candidates = sorted(
+        candidate.relative_to(base)
+        for candidate in release_root.glob(f"*/{genome_uuid}")
+        if candidate.is_dir()
+    )
+    assert nested_candidates, (
+        f"{resource_label} path does not exist for genome_uuid={genome_uuid} "
+        f"under {release_root} (checked direct and one-level nested directories)"
+    )
+    assert len(nested_candidates) == 1, (
+        f"Multiple {resource_label} directories found for genome_uuid={genome_uuid}: "
+        f"{[str(path) for path in nested_candidates]}"
+    )
+    return nested_candidates[0]
+
+
 def validate_expected_files(base_path, relative_path, expected_files, resource_label):
     """Validate that a resource path exists and contains all expected files."""
     resource_path = Path(base_path) / relative_path
