@@ -72,6 +72,7 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
         "metadata_uri": metadata_db_uri,
         "taxonomy_uri": taxonomy_db_uri,
         "genome_uuid": genomes["genome_uuid"],
+        "dataset_status": genomes.get("dataset_status", None),
     }
     if dataset_name.startswith("vep"):
         get_ftp_paths_kwargs["dataset_name"] = dataset_name

@@ -27,7 +27,7 @@ from pathlib import Path
 from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
 from ensembl.production.metadata.api.adaptors.vep import  VepAdaptor
 
-def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None ) :
+def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None, dataset_status=None):
     """
     Prepare FTP relative paths for the given genome uuid from metadata.
     """
@@ -38,7 +38,7 @@ def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None ) :
         if isinstance(file_location, dict):
             file_location = file_location[file_type]
         return {dataset_name: file_location}
-    return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
+    return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid, dataset_status=dataset_status)
 
 def resolve_genome_relative_path(base_path, release_root_relative, genome_uuid, resource_label):
     """Resolve <release_root>/<genome_uuid>, allowing one extra level (e.g. run_id) before genome_uuid."""
