@@ -127,7 +127,7 @@ def check_ftp_dumps_homology_expected_files(user_cli, genomes, automation_resour
 @pytest.mark.automation_resource("ftp_dumps_vep_geneset")
 def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_geneset."""
-    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'vep_gff_location')
+    _check_ftp_resource(user_cli, genomes,  automation_resource_config, "ftp_dumps_vep_geneset", 'ftp_gff_location')
 
 
 @pytest.mark.automation_resource("all")
@@ -136,4 +136,4 @@ def check_ftp_dumps_vep_geneset_expected_files(user_cli, genomes, automation_res
 def check_ftp_dumps_vep_genome_expected_files(user_cli, genomes, automation_resource_config):
     """Validate expected files for ftp_dumps_vep_genome."""
     logging.info("Starting check for ftp_dumps_vep_genome expected files for genome_uuid=%s", genomes['genome_uuid'])
-    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'vep_faa_location')
+    _check_ftp_resource(user_cli, genomes, automation_resource_config, "ftp_dumps_vep_genome", 'ftp_faa_location')
