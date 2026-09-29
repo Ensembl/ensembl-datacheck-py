@@ -93,6 +93,7 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
                     Genome.production_name.label("species"),
                     Genome.created.label("genome_submitted"),
                     Genome.genebuild_date.label("genebuild_date"),
+                    Genome.annotation_source.label("annotation_source"),
                     Organism.scientific_name.label("scientific_name"),
                     DatasetSource.name.label("db_name"),
                     Assembly.accession.label("assembly_accession"),
@@ -102,6 +103,7 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
                     Dataset.name.label("dataset_name"),
                     DatasetType.name.label("dataset_type"),
                     EnsemblRelease.name.label("genome_release"),
+                    EnsemblRelease.label.label("release_label"),
                     GenomeDataset.release_id.label("genome_dataset_release_id"),
                     GenomeDataset.is_current.label("genome_dataset_is_current"),
                 ]
