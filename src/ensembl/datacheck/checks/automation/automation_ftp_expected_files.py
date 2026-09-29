@@ -42,7 +42,16 @@ def _check_ftp_resource(user_cli, genomes,  automation_resource_config, resource
     assert base_path, f"Missing {resource_key}.base_path in automation resource config."
 
     subfolder = resource_config.get("subfolder", "")
-    if subfolder:
+    use_alt = resource_config.get("use_alt_base_path", False)
+    if use_alt:
+        release_name = genomes.get("release_name")
+        assert release_name is not None, f"Missing release_name for genome_uuid={genomes['genome_uuid']}"
+        release_path = Path(base_path) / f"release-{release_name}"
+        base_path = str(release_path / subfolder) if subfolder else str(release_path)
+        assert Path(base_path).is_dir(), (
+            f"{resource_key} path does not exist for genome_uuid={genomes['genome_uuid']}: {base_path}"
+        )
+    elif subfolder:
         base_path = str(Path(base_path) / subfolder)
 
     expected_files = resource_config.get("expected_files", [])
