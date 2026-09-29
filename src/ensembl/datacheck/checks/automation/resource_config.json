@@ -39,7 +39,7 @@
           "subfolder": "tracks",
           "use_alt_base_path": true,
           "database_file": "tracks.sqlite3",
-          "required_files": ["chrom.sizes", "chrom.sizes.ncd"],
+          "optional_files": ["chrom.sizes", "chrom.sizes.ncd"],
           "required_tracks": [
             "gc",
             "contigs",

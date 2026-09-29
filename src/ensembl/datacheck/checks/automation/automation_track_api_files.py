@@ -20,7 +20,8 @@ Inputs:
     - metadata database from ``--database`` for genome/dataset attachment checks
     - Track API SQLite file from ``track_api_files.database_file``
     - deployed track root from ``track_api_files.base_path``
-    - required non-track files from ``track_api_files.required_files``
+    - required and optional non-track files from ``track_api_files.required_files``
+      and ``track_api_files.optional_files``
     - required Track API specifications from ``track_api_files.required_tracks``
     - required and optional dataset type names from the automation resource config
 
@@ -29,7 +30,8 @@ Checks performed:
     - all required specifications are present for that genome
     - every file listed in Track.datafiles exists on disk
     - every ``.bb`` and ``.bw`` file passes the generic or variation file validator
-    - required non-track files such as ``chrom.sizes`` and ``chrom.sizes.ncd`` are present
+    - required non-track files are present, while configured optional non-track files
+      are accepted if deployed
     - every other file in the genome directory is referenced by a loaded track
     - every loaded Track API dataset is attached to the genome in metadata and uses an allowed dataset type
     - required dataset types are attached to the genome, and optional dataset types are allowed
@@ -66,14 +68,13 @@ def _bool_param(value, default=False):
 
 
 def _canonical_uuid(value):
-    """Return a canonical lowercase hex UUID string."""
-    return UUID(str(value)).hex
+    """Return a canonical lowercase hyphenated UUID string."""
+    return str(UUID(str(value)))
 
 
 def _uuid_query_values(value):
-    """Return common UUID encodings used by SQLite-backed Track API tables."""
-    parsed = UUID(str(value))
-    return (str(parsed), parsed.hex, parsed.hex.upper())
+    """Return the canonical UUID encoding used by Track API SQLite tables."""
+    return (str(UUID(str(value))),)
 
 
 def _split_csv_list(value):
@@ -206,7 +207,7 @@ def _load_track_rows(database_file, genome_uuid):
             FROM tracks_track t
             LEFT JOIN tracks_track_specifications tts ON t.id = tts.track_id
             LEFT JOIN tracks_specifications s ON tts.specifications_id = s.id
-            WHERE lower(t.genome_id) IN (?, ?, ?)
+            WHERE lower(t.genome_id) = ?
             ORDER BY t.id
             """,
             _uuid_query_values(genome_uuid),
@@ -242,7 +243,7 @@ def _load_release_rows(database_file, genome_uuid):
             """
             SELECT dataset_id, genome_id, release_label
             FROM tracks_datasetrelease
-            WHERE lower(genome_id) IN (?, ?, ?)
+            WHERE lower(genome_id) = ?
             """,
             _uuid_query_values(genome_uuid),
         ).fetchall()
@@ -352,8 +353,14 @@ def _validate_track_rows(track_rows, base_path, genome_uuid, metadata_rows_by_da
     return expected_relative_paths
 
 
-def _validate_expected_directory_contents(base_path, genome_uuid, track_relative_paths, required_files):
-    """Validate required non-track files and reject extras."""
+def _validate_expected_directory_contents(
+    base_path,
+    genome_uuid,
+    track_relative_paths,
+    required_files,
+    optional_files,
+):
+    """Validate required non-track files, allow optional ones, and reject extras."""
     genome_dir = _track_directory(base_path, genome_uuid)
     assert genome_dir.is_dir(), f"Track API genome directory does not exist: {genome_dir}"
 
@@ -364,7 +371,9 @@ def _validate_expected_directory_contents(base_path, genome_uuid, track_relative
         f"Missing required non-track files in {genome_dir}: {missing_non_track_files}"
     )
 
-    expected_relative_paths = {Path(file_name) for file_name in required_files}
+    expected_relative_paths = {
+        Path(file_name) for file_name in required_files | optional_files
+    }
     genome_relative_dir = genome_dir.relative_to(Path(base_path))
     expected_relative_paths.update(
         relative_path.relative_to(genome_relative_dir)
@@ -541,7 +550,7 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     database_file = _resolve_track_api_database_file(database_file, track_root, genomes)
     assert database_file.is_file(), f"Track API SQLite database file does not exist: {database_file}"
     required_files = set(_split_csv_list(track_api_config.get("required_files")))
-    assert required_files, "Missing track_api_files.required_files in automation resource config."
+    optional_files = set(_split_csv_list(track_api_config.get("optional_files")))
 
     required_specifications = set(_split_csv_list(track_api_config.get("required_tracks")))
     assert required_specifications, (
@@ -604,6 +613,7 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
         genome_uuid=genome_uuid,
         track_relative_paths=track_relative_paths,
         required_files=required_files,
+        optional_files=optional_files,
     )
 
     if _bool_param(track_api_config.get("check_release_info"), default=False):

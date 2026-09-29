@@ -58,7 +58,7 @@ def _track_api_config(base_path, database_file):
             "subfolder": "tracks",
             "use_alt_base_path": True,
             "database_file": str(database_file),
-            "required_files": ["chrom.sizes", "chrom.sizes.ncd"],
+            "optional_files": ["chrom.sizes", "chrom.sizes.ncd"],
             "required_tracks": [
                 "gc",
                 "contigs",
@@ -126,48 +126,48 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
             (
                 1,
                 str(uuid4()),
-                dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                dataset_uuid,
+                genome_uuid,
                 '{"contig":"%s/%s/%s_contigs.bb"}' % (
                     genome_uuid[:3].lower(),
                     genome_uuid,
-                    dataset_uuid.replace("-", "")[:32],
+                    dataset_uuid,
                 ),
                 [1],
             ),
             (
                 2,
                 str(uuid4()),
-                dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                dataset_uuid,
+                genome_uuid,
                 '{"gc":"%s/%s/%s_gc.bw"}' % (
                     genome_uuid[:3].lower(),
                     genome_uuid,
-                    dataset_uuid.replace("-", "")[:32],
+                    dataset_uuid,
                 ),
                 [2],
             ),
             (
                 3,
                 str(uuid4()),
-                dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                dataset_uuid,
+                genome_uuid,
                 '{"simple":"%s/%s/%s_simple-features.bb"}' % (
                     genome_uuid[:3].lower(),
                     genome_uuid,
-                    dataset_uuid.replace("-", "")[:32],
+                    dataset_uuid,
                 ),
                 [3, 4],
             ),
             (
                 4,
                 str(uuid4()),
-                dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                dataset_uuid,
+                genome_uuid,
                 '{"transcripts":"%s/%s/%s_transcripts.bb"}' % (
                     genome_uuid[:3].lower(),
                     genome_uuid,
-                    dataset_uuid.replace("-", "")[:32],
+                    dataset_uuid,
                 ),
                 [5, 6, 7, 8],
             ),
@@ -196,25 +196,26 @@ def _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label
                 INSERT INTO tracks_datasetrelease (dataset_id, genome_id, release_label)
                 VALUES (?, ?, ?)
                 """,
-                (dataset_uuid.replace("-", ""), genome_uuid.replace("-", ""), release_label),
+                (dataset_uuid, genome_uuid, release_label),
             )
         connection.commit()
     finally:
         connection.close()
 
 
-def _create_track_directory(track_root, genome_uuid, dataset_uuid):
+def _create_track_directory(track_root, genome_uuid, dataset_uuid, include_optional_files=True):
     genome_dir = Path(track_root) / genome_uuid[:3].lower() / genome_uuid
     genome_dir.mkdir(parents=True)
     dataset_prefix = dataset_uuid
-    for file_name in (
-        "chrom.sizes",
-        "chrom.sizes.ncd",
+    file_names = [
         f"{dataset_prefix}_contigs.bb",
         f"{dataset_prefix}_gc.bw",
         f"{dataset_prefix}_simple-features.bb",
         f"{dataset_prefix}_transcripts.bb",
-    ):
+    ]
+    if include_optional_files:
+        file_names.extend(("chrom.sizes", "chrom.sizes.ncd"))
+    for file_name in file_names:
         (genome_dir / file_name).touch()
     return genome_dir
 
@@ -328,6 +329,40 @@ def test_check_track_api_files_passes(monkeypatch, tmp_path):
     )
 
 
+def test_check_track_api_files_allows_missing_optional_non_track_files(monkeypatch, tmp_path):
+    genome_uuid = str(uuid4())
+    dataset_uuid = str(uuid4())
+    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    database_file = track_root / "track_api.sqlite3"
+    _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2024-01-01")
+    _create_track_directory(
+        track_root,
+        genome_uuid,
+        dataset_uuid,
+        include_optional_files=False,
+    )
+
+    _patch_validators(monkeypatch)
+    monkeypatch.setattr(
+        track_checks,
+        "_fetch_metadata_dataset_rows",
+        lambda db_session, genome_id: [
+            MetadataRow(
+                dataset_uuid=dataset_uuid,
+                dataset_name="genebuild_browser_files",
+                dataset_type_name="core_tracks",
+                release_label="2024-01-01",
+            ),
+        ],
+    )
+
+    track_checks.check_track_api_files(
+        genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
+        automation_resource_config=_track_api_config(tmp_path, database_file),
+        db_session=object(),
+    )
+
+
 def test_check_track_api_files_fails_on_unexpected_file(monkeypatch, tmp_path):
     genome_uuid = str(uuid4())
     dataset_uuid = str(uuid4())
@@ -416,7 +451,7 @@ def test_check_track_api_files_optional_release_validation(monkeypatch, tmp_path
 def test_check_track_api_files_release_validation_uses_metadata_release_labels(monkeypatch, tmp_path):
     genome_uuid = str(uuid4())
     dataset_uuid = str(uuid4())
-    track_root = tmp_path / "release-2024-01-01" / "tracks"
+    track_root = tmp_path / "release-2025-08-13" / "tracks"
     database_file = track_root / "track_api.sqlite3"
     _create_track_api_db(database_file, genome_uuid, dataset_uuid, release_label="2025-08-13")
     _create_track_directory(track_root, genome_uuid, dataset_uuid)
@@ -466,7 +501,7 @@ def test_check_track_api_files_release_validation_uses_all_metadata_release_labe
             INSERT INTO tracks_datasetrelease (dataset_id, genome_id, release_label)
             VALUES (?, ?, ?)
             """,
-            (dataset_uuid.replace("-", ""), genome_uuid.replace("-", ""), "2026-08-25"),
+            (dataset_uuid, genome_uuid, "2026-08-25"),
         )
         connection.commit()
     finally:
@@ -569,7 +604,7 @@ def test_check_track_api_files_allows_track_file_in_another_genome_directory(mon
                     other_genome_uuid,
                     dataset_uuid,
                 ),
-                genome_uuid.replace("-", ""),
+                genome_uuid,
                 '%_gc.bw"}',
             ),
         )
@@ -915,8 +950,8 @@ def test_check_track_api_files_release_validation_ignores_optional_release_rows_
             (
                 10,
                 str(uuid4()),
-                short_variants_dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                short_variants_dataset_uuid,
+                genome_uuid,
                 '{"variant-summary":"%s/%s/%s_variant-eva.bw"}' % (
                     genome_uuid[:3].lower(),
                     genome_uuid,
@@ -930,8 +965,8 @@ def test_check_track_api_files_release_validation_ignores_optional_release_rows_
             VALUES (?, ?, ?)
             """,
             (
-                short_variants_dataset_uuid.replace("-", ""),
-                genome_uuid.replace("-", ""),
+                short_variants_dataset_uuid,
+                genome_uuid,
                 "2024-01-01",
             ),
         )
