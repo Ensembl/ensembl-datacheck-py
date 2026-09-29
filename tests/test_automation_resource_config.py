@@ -129,15 +129,15 @@ def test_automation_resource_config_use_alt_does_not_affect_resources_without_su
 ):
     config_path = tmp_path / "resource_config.json"
     config_path.write_text(json.dumps({
-        "blast_database_release": {
+        "resource_without_subfolder": {
             "base_path": "/specified/release",
         },
     }))
 
     resource_config = _build_config(config_path=str(config_path), use_alt=True)
 
-    assert resource_config["blast_database_release"]["base_path"] == "/specified/release"
-    assert "use_alt_base_path" not in resource_config["blast_database_release"]
+    assert resource_config["resource_without_subfolder"]["base_path"] == "/specified/release"
+    assert "use_alt_base_path" not in resource_config["resource_without_subfolder"]
 
 
 def test_automation_resource_config_cli_base_path_override_wins_over_use_alt(tmp_path):
