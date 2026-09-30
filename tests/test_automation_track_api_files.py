@@ -236,6 +236,19 @@ def test_is_release_at_or_after_cutoff_returns_false_for_mixed_string_and_int_ty
     assert track_checks._is_release_at_or_after_cutoff("main", 29) is False
 
 
+def test_include_metadata_row_allows_an_unreleased_attachment():
+    row = MetadataRow(
+        dataset_uuid=str(uuid4()),
+        dataset_name="genebuild_browser_files",
+        dataset_type_name="core_tracks",
+        release_label=None,
+        release_name=None,
+        release_type=None,
+    )
+
+    assert track_checks._include_metadata_row(row) is True
+
+
 def test_resolve_track_api_root_supports_alt_layout():
     assert track_checks._resolve_track_api_root(
         base_path="/hps/nobackup/flicek/ensembl/production/ensembl_dumps",

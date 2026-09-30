@@ -111,8 +111,12 @@ def _is_release_at_or_after_cutoff(release_name, cutoff_release_name):
 
 
 def _include_metadata_row(row, ignore_attached_optional_datasets_from_release=None):
-    """Return whether a metadata attachment should participate in Track API checks."""
-    if getattr(row, "release_type", None) != "partial":
+    """Return whether a metadata attachment should participate in Track API checks.
+
+    Attachments without a release are included so Track API data can be checked
+    before its metadata release is created.
+    """
+    if getattr(row, "release_type", None) not in {None, "partial"}:
         return False
     if getattr(row, "dataset_type_name", None) in {"short_variants", "regulation_tracks"}:
         if _is_release_at_or_after_cutoff(
