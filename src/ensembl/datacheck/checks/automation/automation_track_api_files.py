@@ -20,8 +20,7 @@ Inputs:
     - metadata database from ``--database`` for genome/dataset attachment checks
     - Track API SQLite file from ``track_api_files.database_file``
     - deployed track root from ``track_api_files.base_path``
-    - required and optional non-track files from ``track_api_files.required_files``
-      and ``track_api_files.optional_files``
+    - optional non-track files from ``track_api_files.optional_files``
     - required Track API specifications from ``track_api_files.required_tracks``
     - required and optional dataset type names from the automation resource config
 
@@ -30,8 +29,7 @@ Checks performed:
     - all required specifications are present for that genome
     - every file listed in Track.datafiles exists on disk
     - every ``.bb`` and ``.bw`` file passes the generic or variation file validator
-    - required non-track files are present, while configured optional non-track files
-      are accepted if deployed
+    - configured optional non-track files are accepted if deployed
     - every other file in the genome directory is referenced by a loaded track
     - every loaded Track API dataset is attached to the genome in metadata and uses an allowed dataset type
     - required dataset types are attached to the genome, and optional dataset types are allowed
@@ -357,23 +355,13 @@ def _validate_expected_directory_contents(
     base_path,
     genome_uuid,
     track_relative_paths,
-    required_files,
     optional_files,
 ):
-    """Validate required non-track files, allow optional ones, and reject extras."""
+    """Allow optional non-track files and reject extras."""
     genome_dir = _track_directory(base_path, genome_uuid)
     assert genome_dir.is_dir(), f"Track API genome directory does not exist: {genome_dir}"
 
-    missing_non_track_files = sorted(
-        file_name for file_name in required_files if not (genome_dir / file_name).exists()
-    )
-    assert not missing_non_track_files, (
-        f"Missing required non-track files in {genome_dir}: {missing_non_track_files}"
-    )
-
-    expected_relative_paths = {
-        Path(file_name) for file_name in required_files | optional_files
-    }
+    expected_relative_paths = {Path(file_name) for file_name in optional_files}
     genome_relative_dir = genome_dir.relative_to(Path(base_path))
     expected_relative_paths.update(
         relative_path.relative_to(genome_relative_dir)
@@ -549,7 +537,6 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
     assert database_file, "Missing track_api_files.database_file in automation resource config."
     database_file = _resolve_track_api_database_file(database_file, track_root, genomes)
     assert database_file.is_file(), f"Track API SQLite database file does not exist: {database_file}"
-    required_files = set(_split_csv_list(track_api_config.get("required_files")))
     optional_files = set(_split_csv_list(track_api_config.get("optional_files")))
 
     required_specifications = set(_split_csv_list(track_api_config.get("required_tracks")))
@@ -612,7 +599,6 @@ def check_track_api_files(genomes, automation_resource_config, db_session):
         base_path=str(track_root),
         genome_uuid=genome_uuid,
         track_relative_paths=track_relative_paths,
-        required_files=required_files,
         optional_files=optional_files,
     )
 

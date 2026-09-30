@@ -38,7 +38,6 @@ AUTOMATION_CONFIG_FIELDS = (
     "expected_files",
     "base_path",
     "database_file",
-    "required_files",
     "optional_files",
     "required_tracks",
     "required_datasets",
