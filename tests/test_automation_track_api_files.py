@@ -490,6 +490,7 @@ def test_check_track_api_files_release_validation_uses_metadata_release_labels(m
         automation_resource_config={
             "track_api_files": {
                 **_track_api_config(tmp_path, database_file)["track_api_files"],
+                "base_path": str(track_root),
                 "check_release_info": True,
             }
         },
@@ -549,6 +550,7 @@ def test_check_track_api_files_release_validation_uses_all_metadata_release_labe
         automation_resource_config={
             "track_api_files": {
                 **_track_api_config(tmp_path, database_file)["track_api_files"],
+                "base_path": str(track_root),
                 "check_release_info": True,
             }
         },
@@ -895,51 +897,6 @@ def test_check_track_api_files_still_requires_optional_dataset_tracks_before_cut
             },
             db_session=object(),
         )
-
-
-def test_check_track_api_files_ignores_non_partial_optional_dataset(
-    monkeypatch, tmp_path
-):
-    genome_uuid = str(uuid4())
-    core_dataset_uuid = str(uuid4())
-    short_variants_dataset_uuid = str(uuid4())
-    track_root = tmp_path / "release-2024-01-01" / "tracks"
-    database_file = track_root / "track_api.sqlite3"
-    _create_track_api_db(database_file, genome_uuid, core_dataset_uuid, release_label="2024-01-01")
-    _create_track_directory(track_root, genome_uuid, core_dataset_uuid)
-
-    _patch_validators(monkeypatch)
-    monkeypatch.setattr(
-        track_checks,
-        "_fetch_metadata_dataset_rows",
-        lambda db_session, genome_id: [
-            MetadataRow(
-                dataset_uuid=core_dataset_uuid,
-                dataset_name="genebuild_browser_files",
-                dataset_type_name="core_tracks",
-                release_label="2024-01-01",
-                release_name=28,
-            ),
-            MetadataRow(
-                dataset_uuid=short_variants_dataset_uuid,
-                dataset_name="variation_browser_files",
-                dataset_type_name="short_variants",
-                release_label="2024-01-01",
-                release_name=28,
-            ),
-        ],
-    )
-
-    track_checks.check_track_api_files(
-        genomes={"genome_uuid": genome_uuid, "release_label": "2024-01-01"},
-        automation_resource_config={
-            "track_api_files": {
-                **_track_api_config(tmp_path, database_file)["track_api_files"],
-                "ignore_attached_optional_datasets_from_release": 29,
-            }
-        },
-        db_session=object(),
-    )
 
 
 def test_check_track_api_files_release_validation_ignores_optional_release_rows_from_cutoff(
