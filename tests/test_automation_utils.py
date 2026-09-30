@@ -46,29 +46,32 @@ def _taxonomy_db_url():
     return f"sqlite:///{_taxonomy_db_path().resolve()}"
 
 
-def _get_genome_uuid():
-    """Find a genome UUID with metadata required by get_public_path templates."""
+def _get_genome():
+    """Find a genebuild genome and the metadata get_ftp_paths needs to build its paths."""
     query = """
-        SELECT distinct g.genome_uuid
+        SELECT distinct g.genome_uuid, g.genebuild_date, g.annotation_source, a.accession, er.label
         FROM genome AS g
+        JOIN assembly AS a ON a.assembly_id = g.assembly_id
         JOIN genome_dataset AS gd ON gd.genome_id = g.genome_id
         JOIN dataset AS d ON d.dataset_id = gd.dataset_id
         JOIN dataset_type AS dt ON dt.dataset_type_id = d.dataset_type_id
+        LEFT JOIN ensembl_release AS er ON er.release_id = gd.release_id
         WHERE dt.name = 'genebuild'
     """
     with sqlite3.connect(str(_metadata_db_path())) as conn:
         row = conn.execute(query).fetchone()
     assert row is not None, "No suitable genome UUID found in metadata test fixture"
-    return row[0]
+    return dict(zip(
+        ["genome_uuid", "genebuild_date", "annotation_source", "assembly_accession", "release_label"], row
+    ))
 
 
 def test_get_ftp_paths_returns_paths_from_metadata_fixture():
     """Verify get_ftp_paths returns dataset/path records matching path_templates."""
-    genome_uuid = _get_genome_uuid()
     ftp_paths = get_ftp_paths(
         metadata_uri=_metadata_db_url(),
         taxonomy_uri=_taxonomy_db_url(),
-        genome_uuid=genome_uuid,
+        **_get_genome(),
     )
 
     assert isinstance(ftp_paths, list)
@@ -81,7 +84,7 @@ def test_get_ftp_paths_returns_paths_from_metadata_fixture():
 
     dataset_types = {item["dataset_type"] for item in ftp_paths}
     assert dataset_types.issubset(
-        {"genebuild", "assembly", "homologies", "regulation", "variation"}
+        {"genebuild", "assembly", "homologies", "short_variants"}
     )
     assert "genebuild" in dataset_types
 
@@ -105,10 +108,8 @@ def test_get_ftp_paths_returns_paths_from_metadata_fixture():
         assert re.match(common_prefix + r"/geneset$", path_by_dataset_type["genebuild"])
     if "homologies" in path_by_dataset_type:
         assert re.match(common_prefix + r"/homology/\d{4}_\d{2}_\d{2}$", path_by_dataset_type["homologies"])
-    if "regulation" in path_by_dataset_type:
-        assert re.match(common_prefix + r"/regulation$", path_by_dataset_type["regulation"])
-    if "variation" in path_by_dataset_type:
-        assert re.match(common_prefix + r"/variation$", path_by_dataset_type["variation"])
+    if "short_variants" in path_by_dataset_type:
+        assert re.match(common_prefix + r"/variation/\d{4}_\d{2}_\d{2}$", path_by_dataset_type["short_variants"])
 
     # Every dataset type now shares the exact same prefix (accession shard +
     # provider + date) -- unlike before, assembly is no longer a shorter
@@ -122,10 +123,8 @@ def test_get_ftp_paths_returns_paths_from_metadata_fixture():
         common_path_candidates.append(path_by_dataset_type["genebuild"].removesuffix("/geneset"))
     if "homologies" in path_by_dataset_type:
         common_path_candidates.append(path_by_dataset_type["homologies"].split("/homology/")[0])
-    if "regulation" in path_by_dataset_type:
-        common_path_candidates.append(path_by_dataset_type["regulation"].removesuffix("/regulation"))
-    if "variation" in path_by_dataset_type:
-        common_path_candidates.append(path_by_dataset_type["variation"].removesuffix("/variation"))
+    if "short_variants" in path_by_dataset_type:
+        common_path_candidates.append(path_by_dataset_type["short_variants"].split("/variation/")[0])
 
     if common_path_candidates:
         assert len(set(common_path_candidates)) == 1
