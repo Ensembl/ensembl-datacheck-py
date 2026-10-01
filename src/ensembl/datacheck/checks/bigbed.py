@@ -23,6 +23,9 @@ Checks performed:
 2. check_validity: Asserts that the target file is readable as BigBed.
 """
 
+import shutil
+import subprocess
+
 from ensembl.datacheck.functions.file_checks import file_exists
 from ensembl.datacheck.functions.io_utils import bb_bw_reader
 
@@ -56,9 +59,27 @@ def check_validity(target_file):
         assert reader is not None, "Could not open target file as BigBed."
         assert reader.isBigBed(), "The target file is not recognised as BigBed."
     except Exception as exc:
-        raise AssertionError(
-            f"Could not validate target file as BigBed: {exc}"
-        ) from exc
+        _fallback_validate_with_bigbedinfo(target_file, exc)
     finally:
         if reader is not None:
             reader.close()
+
+
+def _fallback_validate_with_bigbedinfo(target_file, original_exception):
+    """Validate BigBed files with UCSC bigBedInfo when pyBigWig is unavailable or unstable."""
+    tool_path = shutil.which("bigBedInfo")
+    if tool_path is None:
+        raise AssertionError(
+            f"Could not validate target file as BigBed: {original_exception}"
+        ) from original_exception
+
+    process = subprocess.run(
+        [tool_path, str(target_file)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert process.returncode == 0, (
+        "Could not validate target file as BigBed via pyBigWig "
+        f"({original_exception}) or bigBedInfo ({process.stderr.strip()})"
+    )

@@ -23,6 +23,9 @@ Checks performed:
 2. check_validity: Asserts that the target file is readable as BigWig.
 """
 
+import shutil
+import subprocess
+
 from ensembl.datacheck.functions.file_checks import file_exists
 from ensembl.datacheck.functions.io_utils import bb_bw_reader
 
@@ -56,9 +59,27 @@ def check_validity(target_file):
         assert reader is not None, "Could not open target file as BigWig."
         assert reader.isBigWig(), "The target file is not recognised as BigWig."
     except Exception as exc:
-        raise AssertionError(
-            f"Could not validate target file as BigWig: {exc}"
-        ) from exc
+        _fallback_validate_with_bigwiginfo(target_file, exc)
     finally:
         if reader is not None:
             reader.close()
+
+
+def _fallback_validate_with_bigwiginfo(target_file, original_exception):
+    """Validate BigWig files with UCSC bigWigInfo when pyBigWig is unavailable or unstable."""
+    tool_path = shutil.which("bigWigInfo")
+    if tool_path is None:
+        raise AssertionError(
+            f"Could not validate target file as BigWig: {original_exception}"
+        ) from original_exception
+
+    process = subprocess.run(
+        [tool_path, str(target_file)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert process.returncode == 0, (
+        "Could not validate target file as BigWig via pyBigWig "
+        f"({original_exception}) or bigWigInfo ({process.stderr.strip()})"
+    )
