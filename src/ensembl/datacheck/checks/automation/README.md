@@ -69,6 +69,7 @@ COMMON_ARGS="--database ${METADATA_DB_URL} --taxonomy_database ${TAXONOMY_DB_URL
 ensembl-datacheck --test=automation/automation_blast_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_blast_database_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_blast_database_release ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_blast_database_release_sync ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_compara_mongo_load ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_ftp_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_genesearch_solr ${COMMON_ARGS}
@@ -102,6 +103,11 @@ JSON reports are written with two-space indentation by default. Override with
 - `automation_blast_database_release` reads `base_path` and `expected_files`
   from the `blast_database_release` config. It does not use `--release_name`;
   `base_path` is the BLAST database release directory to check.
+- `automation_blast_database_release_sync` reads `base_path` and
+  `manifest_path` from `blast_database_release_sync`. It validates only the
+  files named in the just-generated source manifest at the release target,
+  including their MD5 checksums; it does not query metadata or inspect
+  pre-existing release entries.
 - Automation resource config precedence is:
   `--params` > `--use_alt` > `ENSEMBL_DATACHECK_*` environment variables >
   `--automation_resource_config` JSON > bundled repo JSON.
