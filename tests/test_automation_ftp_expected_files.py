@@ -32,7 +32,7 @@ class _DummyCli:
 def test_check_ftp_resource_accepts_list_of_dataset_paths(monkeypatch):
     captured = {}
 
-    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid):
+    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, **kwargs):
         assert metadata_uri
         assert taxonomy_uri
         assert genome_uuid == "uuid-1"
@@ -74,7 +74,7 @@ def test_check_ftp_resource_uses_alt_base_path(monkeypatch, tmp_path):
     alt_base = tmp_path / "release-2026_05" / "ftp_dumps"
     alt_base.mkdir(parents=True)
 
-    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid):
+    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, **kwargs):
         return [{"dataset_type": "assembly", "path": "species/path/genome"}]
 
     def _fake_validate_expected_files(base_path, relative_path, expected_files, resource_label):
@@ -107,7 +107,7 @@ def test_check_ftp_resource_uses_alt_base_path(monkeypatch, tmp_path):
 
 
 def test_check_ftp_resource_fails_with_clear_message_when_dataset_missing(monkeypatch):
-    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid):
+    def _fake_get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, **kwargs):
         return [{"dataset_type": "genebuild", "path": "species/path/geneset/2026_05"}]
 
     monkeypatch.setattr(ftp_checks, "get_ftp_paths", _fake_get_ftp_paths)

@@ -22,7 +22,7 @@ Checks performed:
 
 import pytest
 from pathlib import Path
-from ensembl.datacheck.checks.automation.utils import validate_expected_files
+from ensembl.datacheck.checks.automation.utils import resolve_genome_relative_path, validate_expected_files
 
 
 def _validate_only_expected_refget_files(base_path, relative_path, expected_files, resource_label):
@@ -44,29 +44,7 @@ def _validate_only_expected_refget_files(base_path, relative_path, expected_file
 
 def _resolve_refget_relative_path(base_path, release_name, genome_uuid):
     """Resolve refget path, allowing an optional one-level subdirectory under release."""
-    base = Path(base_path)
-    release_root_relative = Path(f"release_{release_name}")
-    release_root = base / release_root_relative
-    assert release_root.is_dir(), f"Release directory does not exist: {release_root}"
-
-    direct_relative = release_root_relative / genome_uuid
-    if (base / direct_relative).is_dir():
-        return direct_relative
-
-    nested_candidates = sorted(
-        candidate.relative_to(base)
-        for candidate in release_root.glob(f"*/{genome_uuid}")
-        if candidate.is_dir()
-    )
-    assert nested_candidates, (
-        f"refget path does not exist for genome_uuid={genome_uuid} "
-        f"under {release_root} (checked direct and one-level nested directories)"
-    )
-    assert len(nested_candidates) == 1, (
-        f"Multiple refget directories found for genome_uuid={genome_uuid}: "
-        f"{[str(path) for path in nested_candidates]}"
-    )
-    return nested_candidates[0]
+    return resolve_genome_relative_path(base_path, Path(f"release_{release_name}"), genome_uuid, "refget")
 
 
 @pytest.mark.automation_resource("all")
@@ -89,10 +67,11 @@ def check_refget_expected_files(genomes, automation_resource_config):
     subfolder = refget_config.get("subfolder", "")
     use_alt = refget_config.get("use_alt_base_path", False)
     if use_alt:
-        relative_path = Path(f"release-{release_name}") / subfolder / genome_uuid if subfolder else Path(f"release-{release_name}") / genome_uuid
-        assert (Path(base_path) / relative_path).is_dir(), (
-            f"refget path does not exist for genome_uuid={genome_uuid}: "
-            f"{Path(base_path) / relative_path}"
+        relative_path = resolve_genome_relative_path(
+            base_path=base_path,
+            release_root_relative=Path(f"release-{release_name}") / subfolder,
+            genome_uuid=genome_uuid,
+            resource_label="refget",
         )
         check_base = base_path
     else:
