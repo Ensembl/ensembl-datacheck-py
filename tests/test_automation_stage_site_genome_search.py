@@ -84,7 +84,7 @@ def test_stage_site_resource_skips(resource_config):
 
 def test_build_genome_search_url():
     assert genome_search._build_genome_search_url("https://staging-2020.ensembl.org/") == (
-        "https://staging-2020.ensembl.org/api/search/genomes"
+        "https://staging-2020.ensembl.org/api/search/genomes/v3"
     )
 
 
@@ -94,7 +94,9 @@ class TestGenomeSearchChecks:
     def test_passes_when_genome_among_matches(self, monkeypatch, check_name, query):
         response = _DummyResponse(json_payload={"matches": [_match(genome_id="other"), _match()]})
         calls = _run_check(monkeypatch, check_name, response)
-        assert calls["get"] == [("https://staging.example.org/api/search/genomes", {"query": query})]
+        assert calls["get"] == [
+            ("https://staging.example.org/api/search/genomes/v3", {"query": query, "page": 1, "per_page": 100})
+        ]
         assert calls["head"] == [ASSEMBLY_URL]
 
     def test_fails_when_genome_missing(self, monkeypatch, check_name, query):

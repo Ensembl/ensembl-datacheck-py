@@ -16,7 +16,8 @@
 """
 Check that each genome can be found through the staging site genome selector search.
 The genome selector page (<site>/genome-selector/search?query=...) is rendered client side
-from the search API (<site>/api/search/genomes?query=...), so the API is queried directly.
+from the search API (<site>/api/search/genomes/v3?query=...), so the API is queried directly.
+The v3 endpoint is used as the unversioned one does not return genomes of partial releases.
 Checks performed:
     - Search by genome_uuid returns a match whose genome_id is the genome_uuid,
       and whose assembly url responds with 200.
@@ -29,7 +30,9 @@ import logging
 import pytest
 import requests
 
-GENOME_SEARCH_PATH = "/api/search/genomes"
+GENOME_SEARCH_PATH = "/api/search/genomes/v3"
+# A genome_uuid or assembly accession query matches a handful of genomes, so one page is enough
+GENOME_SEARCH_PAGE_SIZE = 100
 
 
 def _build_genome_search_url(base_url):
@@ -41,7 +44,11 @@ def _search_genomes(base_url, query):
     """Query the genome search API and return (url, matches)."""
     url = _build_genome_search_url(base_url)
     logging.info("Genome search: %s?query=%s", url, query)
-    response = requests.get(url, params={"query": query}, timeout=60)
+    response = requests.get(
+        url,
+        params={"query": query, "page": 1, "per_page": GENOME_SEARCH_PAGE_SIZE},
+        timeout=60,
+    )
 
     if response.status_code != 200:
         raise AssertionError(

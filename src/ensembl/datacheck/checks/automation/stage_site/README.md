@@ -50,11 +50,13 @@ required. `--test=automation` does not run this directory; run it by path.
 
 | Check | Endpoint | Passes when | Purpose |
 |---|---|---|---|
-| `check_genome_search_by_genome_uuid` | `GET <site>/api/search/genomes?query=<genome_uuid>` | 200, a match has `genome_id` = genome_uuid, and its `assembly.url` responds with 200 | Genome can be found by its UUID in the genome selector |
-| `check_genome_search_by_assembly_accession` | `GET <site>/api/search/genomes?query=<assembly_accession>` | Same as above | Genome can be found by its assembly accession in the genome selector |
+| `check_genome_search_by_genome_uuid` | `GET <site>/api/search/genomes/v3?query=<genome_uuid>&page=1&per_page=100` | 200, a match has `genome_id` = genome_uuid, and its `assembly.url` responds with 200 | Genome can be found by its UUID in the genome selector |
+| `check_genome_search_by_assembly_accession` | `GET <site>/api/search/genomes/v3?query=<assembly_accession>&page=1&per_page=100` | Same as above | Genome can be found by its assembly accession in the genome selector |
 
 The genome selector page (`<site>/genome-selector/search?query=...`) is rendered
-in the browser from this API, so the API is queried directly.
+in the browser from this API, so the API is queried directly. The `v3` endpoint is
+used because the unversioned `/api/search/genomes` does not return genomes of
+partial releases.
 
 ### `gene_search.py`: gene search
 
