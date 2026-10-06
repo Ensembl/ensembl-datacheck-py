@@ -29,6 +29,11 @@
                 "cdna.nsq", "cds.nsq", "pep.psq", "softmasked.nsq", "unmasked.nsq"
             ]
         },
+        "blast_database_release_sync": {
+            "base_path": "/nfs/production/flicek/ensembl/production/blast_db",
+            "manifest_path": null,
+            "type": "dir"
+        },
         "refget": {
           "type": "dir",
           "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",

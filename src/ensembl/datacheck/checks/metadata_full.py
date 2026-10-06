@@ -134,7 +134,7 @@ def check_released_datasets_have_released_releases(db_session):
     Check that all Released datasets are properly attached to Released releases.
 
     Performs two checks:
-    1. Released datasets must have a genome_dataset entry with a release_id
+    1. Released datasets must have at least one genome_dataset entry with a release_id
     2. Released datasets must have at least one Released release attached
 
     Args:
@@ -143,15 +143,15 @@ def check_released_datasets_have_released_releases(db_session):
     Raises:
         AssertionError: If any Released dataset is not properly attached to a Released release.
     """
+    # A released assembly dataset can also be attached to a newly handed-over,
+    # unreleased genome.  That attachment has no release_id until the genome is
+    # released, but does not invalidate the dataset's existing released
+    # attachment.
     datasets_without_release = (
         db_session.query(Dataset)
-        .outerjoin(Dataset.genome_datasets)
         .filter(
             Dataset.status == DatasetStatus.RELEASED,
-            or_(
-                GenomeDataset.dataset_id == None,
-                GenomeDataset.release_id == None
-            )
+            ~Dataset.genome_datasets.any(GenomeDataset.release_id.isnot(None)),
         )
         .all()
     )
