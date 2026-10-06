@@ -31,6 +31,7 @@ CHUNK_SIZE = 1024 * 1024
 
 
 def _get_sync_config(automation_resource_config):
+    """Return the BLAST database release-sync configuration section."""
     config = automation_resource_config.get("blast_database_release_sync")
     assert config is not None, (
         "Missing 'blast_database_release_sync' section in automation resource config."
@@ -39,6 +40,7 @@ def _get_sync_config(automation_resource_config):
 
 
 def _get_required_path(config, key):
+    """Return an existing path required by the release-sync configuration."""
     value = config.get(key)
     assert value, f"Missing blast_database_release_sync.{key} in automation resource config."
     path = Path(value)
@@ -77,6 +79,7 @@ def _read_manifest(manifest_path):
 
 
 def _md5sum(path):
+    """Calculate and return the hexadecimal MD5 checksum for ``path``."""
     try:
         digest = hashlib.md5(usedforsecurity=False)
     except TypeError:
