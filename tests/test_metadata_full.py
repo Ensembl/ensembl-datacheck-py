@@ -23,10 +23,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from ensembl.datacheck.checks.metadata_full import (
+    check_genome_matches_genebuild_attributes,
     check_released_datasets_have_released_releases,
 )
+from ensembl.datacheck.plugins.pytest_hooks import _parse_datacheck_assertion_details
 from ensembl.production.metadata.api.models import (
+    Attribute,
     Dataset,
+    DatasetAttribute,
     DatasetStatus,
     EnsemblRelease,
     Genome,
@@ -121,3 +125,35 @@ def test_released_dataset_without_any_released_attachment_fails(metadata_session
 
     with pytest.raises(AssertionError, match="Released datasets without a release"):
         check_released_datasets_have_released_releases(metadata_session)
+
+
+def test_genome_matches_genebuild_attributes_passes(metadata_session):
+    """Fixture genomes agree with their genebuild.* dataset attributes."""
+    check_genome_matches_genebuild_attributes(metadata_session)
+
+
+def test_genome_mismatching_genebuild_attribute_fails(metadata_session):
+    """A genome whose provider_name differs from genebuild.provider_name fails."""
+    genome = (
+        metadata_session.query(Genome)
+        .join(GenomeDataset, Genome.genome_id == GenomeDataset.genome_id)
+        .join(DatasetAttribute, GenomeDataset.dataset_id == DatasetAttribute.dataset_id)
+        .join(Attribute, DatasetAttribute.attribute_id == Attribute.attribute_id)
+        .filter(Attribute.name == "genebuild.provider_name")
+        .first()
+    )
+    assert genome is not None
+
+    genome.provider_name = "Mismatched provider"
+    metadata_session.commit()
+
+    with pytest.raises(AssertionError) as excinfo:
+        check_genome_matches_genebuild_attributes(metadata_session)
+
+    # The message must stay parseable by the JSON report's "details" builder
+    details = _parse_datacheck_assertion_details(str(excinfo.value).splitlines())
+    assert details["count"] == 1
+    assert details["items"] == [
+        f"{{{genome.genome_uuid}: {{genome.provider_name: Mismatched provider, "
+        "attribute.genebuild.provider_name: Ensembl}}"
+    ]
