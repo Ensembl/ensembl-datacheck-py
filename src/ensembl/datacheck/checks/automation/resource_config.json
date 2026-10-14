@@ -1,13 +1,13 @@
 {
         "blast": {
-            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+            "base_path": "${HPS_DUMPS}",
             "subfolder": "blast",
             "use_alt_base_path": 1,
             "type": "dir",
             "expected_files": ["cdna.fa", "cds.fa", "pep.fa", "softmasked.fa", "unmasked.fa"]
         },
         "blast_database_files": {
-            "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+            "base_path": "${HPS_DUMPS}",
             "subfolder": "blastdbs",
             "use_alt_base_path": 1,
             "type": "dir",
@@ -19,7 +19,7 @@
             ]
         },
         "blast_database_release": {
-            "base_path": "/nfs/production/flicek/ensembl/production/blast_db",
+            "base_path": "${BLAST_DB_LIVE}",
             "subfolder": "blast_db",
             "type": "dir",
             "use_alt_base_path": 1,
@@ -30,13 +30,13 @@
             ]
         },
         "blast_database_release_sync": {
-            "base_path": "/nfs/production/flicek/ensembl/production/blast_db",
+            "base_path": "${BLAST_DB_LIVE}",
             "manifest_path": null,
             "type": "dir"
         },
         "refget": {
           "type": "dir",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "refget",
           "use_alt_base_path": 1,
             "expected_files": ["cdna.hashes","cds.hashes","seq.hashes", "pep.hashes",
@@ -45,10 +45,10 @@
         },
         "track_api_files": {
           "type": "dir",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "tracks",
           "use_alt_base_path": 1,
-          "database_file": "tracks.sqlite3",
+          "database_file": "${TRACK_DB_PROD}",
           "optional_files": ["chrom.sizes", "chrom.sizes.ncd"],
           "required_tracks": [
             "gc",
@@ -65,7 +65,7 @@
         },
         "ftp_dumps_geneset": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "ftp_dumps",
           "expected_files": ["cdna.fa.bgz", "cdna.fa.bgz.fai", "genes.embl.gz",
                   "genes.gff3.bgz", "genes.gff3.bgz.csi", "genes.gff3.gz",
@@ -75,7 +75,7 @@
         },
         "ftp_dumps_genomes": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "ftp_dumps",
           "use_alt_base_path": 1,
           "expected_files": ["hardmasked.fa.bgz", "hardmasked.fa.bgz.fai", "md5sum.txt",
@@ -84,21 +84,21 @@
         },
         "ftp_dumps_homology": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "ftp_dumps",
           "use_alt_base_path": 1,
           "expected_files": ["*.tsv.gz",  "md5sum.txt"]
         },
         "ftp_dumps_vep_geneset": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "ftp_dumps",
           "use_alt_base_path": 1,
           "expected_files": ["genes.gff3.bgz", "genes.gff3.bgz.csi"]
         },
         "ftp_dumps_vep_genome": {
           "type": "file",
-          "base_path": "/hps/nobackup/flicek/ensembl/production/ensembl_dumps",
+          "base_path": "${HPS_DUMPS}",
           "subfolder": "ftp_dumps",
           "use_alt_base_path": 1,
           "expected_files": ["softmasked.fa.bgz"]
