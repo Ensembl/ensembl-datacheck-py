@@ -49,6 +49,22 @@ def test_automation_resource_config_uses_bundled_config_by_default():
     assert resource_config["blast_database_release"]["expected_files"]
 
 
+def test_automation_resource_config_expands_standard_environment_variables():
+    resource_config = _build_config(environ={
+        "HPS_DUMPS": "/env/dumps",
+        "BLAST_DB_LIVE": "/env/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/env/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/env/blast-db"
+
+
+def test_automation_resource_config_leaves_unset_environment_variables_visible():
+    resource_config = _build_config()
+
+    assert resource_config["blast"]["base_path"] == "${HPS_DUMPS}"
+
+
 def test_automation_resource_config_supports_historical_relative_resource_config_path():
     resource_config = _build_config(
         config_path=(
