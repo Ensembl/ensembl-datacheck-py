@@ -28,6 +28,7 @@ import pathlib
 import json
 import yaml
 import os
+import re
 from copy import deepcopy
 from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 
@@ -53,6 +54,7 @@ PARAM_ALIASES = {
     "base_dir": "blast_database_release.base_path",
     "blast_database_release_base_dir": "blast_database_release.base_path",
 }
+_ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _resolve_automation_resource_config_path(config):
@@ -99,6 +101,28 @@ def _deep_merge_config(base_config, override_config):
         else:
             merged_config[key] = deepcopy(value)
     return merged_config
+
+
+def _expand_environment_variables(config, environ):
+    """Expand ``${VARIABLE}`` references in string configuration values.
+
+    Leave an unavailable variable unchanged so a configuration can still be
+    inspected or overridden without requiring every runtime resource variable.
+    The consuming check will then report its configured path if it is used.
+    """
+    if isinstance(config, dict):
+        return {
+            key: _expand_environment_variables(value, environ)
+            for key, value in config.items()
+        }
+    if isinstance(config, list):
+        return [_expand_environment_variables(value, environ) for value in config]
+    if not isinstance(config, str):
+        return config
+
+    return _ENVIRONMENT_VARIABLE_PATTERN.sub(
+        lambda match: environ.get(match.group(1), match.group(0)), config
+    )
 
 
 def _parse_key_value_params(raw_params):
@@ -212,6 +236,7 @@ def _build_automation_resource_config(
         specified_config = _load_config(resolved_config_path)
 
     resource_config = _deep_merge_config(bundled_config, specified_config)
+    resource_config = _expand_environment_variables(resource_config, environ)
     resource_config = _apply_config_overrides(
         resource_config,
         _automation_environment_overrides(environ),

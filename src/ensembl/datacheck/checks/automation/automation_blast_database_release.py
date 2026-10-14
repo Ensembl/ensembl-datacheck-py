@@ -28,10 +28,6 @@ from pathlib import Path
 
 import pytest
 
-DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR = (
-    "/nfs/production/flicek/ensembl/production/blastdb"
-)
-
 # Files with these extensions are optional: present or absent is equally valid.
 # In the long term these should be generated every time.
 _OPTIONAL_EXTENSIONS = frozenset({'.njs', '.pjs'})
@@ -47,12 +43,13 @@ def _get_blast_database_release_config(automation_resource_config):
 
 
 def _get_blast_database_release_base_dir(automation_resource_config):
-    """Resolve base directory from config or default."""
+    """Return the configured BLAST database release directory."""
     release_config = _get_blast_database_release_config(automation_resource_config)
-    return (
-        release_config.get("base_path")
-        or DEFAULT_BLAST_DATABASE_RELEASE_BASE_DIR
+    base_path = release_config.get("base_path")
+    assert base_path, (
+        "Missing blast_database_release.base_path in automation resource config."
     )
+    return base_path
 
 
 def _get_blast_database_release_expected_files(automation_resource_config):

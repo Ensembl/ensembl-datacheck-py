@@ -31,6 +31,18 @@ Optional resource config overrides:
 export ENSEMBL_DATACHECK_BLAST_DATABASE_FILES_BASE_PATH="/path/to/blast_db"
 ```
 
+The bundled configuration expands `${VARIABLE}` values using the process
+environment. With the Production TEAM module in the question loaded, it uses:
+
+- `HPS_DUMPS` for generated dumps (`blast`, `blastdbs`, `refget`, `tracks`, and
+  FTP dumps)
+- `BLAST_DB_LIVE` for the live BLAST database release and synchronisation checks
+- `TRACK_DB_PROD` for the Track API SQLite database
+
+Set these variables before running the corresponding checks when that module is
+not loaded. An unset variable is deliberately left visible in the resolved
+configuration so it can be overridden with `ENSEMBL_DATACHECK_*` or `--params`.
+
 Runtime `--params` overrides use dotted config paths:
 
 ```bash
