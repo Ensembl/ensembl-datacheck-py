@@ -28,6 +28,8 @@ Checks performed:
 9. check_orphan: Ensures no orphaned records (datasets, organisms, assemblies, etc.)
 10. check_missing_checksums: Ensures all Released assembly sequences have checksums
 11. check_one_current_genome_per_assembly_provider: Ensures that we don't have multiple current genomes for the same set
+12. check_genome_matches_genebuild_attributes: Ensures genome genebuild_date/annotation_source/provider_name match
+    the corresponding genebuild.* dataset attributes
 
 To Be implemented when attributes are fixed:
 Required attributes are present
@@ -38,7 +40,7 @@ import pytest
 from sqlalchemy import or_, func, String, Text
 from ensembl.production.metadata.api.models import Dataset, GenomeDataset, DatasetStatus, EnsemblRelease, ReleaseStatus, \
     Organism, Genome, OrganismGroup, OrganismGroupMember, Assembly, AssemblySequence, DatasetSource, GenomeRelease, \
-    DatasetType, GenomeGroup, GenomeGroupMember
+    DatasetType, GenomeGroup, GenomeGroupMember, Attribute, DatasetAttribute
 from ensembl.production.metadata.api.models.base import Base
 from ensembl.datacheck.functions.db_checks import (
     database_connection_check,
@@ -598,3 +600,65 @@ def check_one_current_genome_per_assembly_provider(db_session):
         error_msg = "Found multiple is_current genomes for the same assembly/provider combination:\n"
         error_msg += "\n".join(problems)
         pytest.fail(error_msg)
+
+
+@pytest.mark.usefixtures("db_session")
+def check_genome_matches_genebuild_attributes(db_session):
+    """
+    Check that genome columns match the equivalent genebuild dataset attributes:
+    - genome.genebuild_date == genebuild.last_geneset_update
+    - genome.annotation_source == genebuild.annotation_source
+    - genome.provider_name == genebuild.provider_name
+
+    The failure message uses the "<label>: <count>. Release path: <path>" / "Full list:" format,
+    so the JSON report lists each mismatching genome under "details.items" as
+    {<genome_uuid>: {genome.<column>: <value>, attribute.genebuild.<name>: <value>}}.
+
+    Args:
+        db_session (sqlalchemy.orm.Session): The database session.
+
+    Raises:
+        AssertionError: If any genome column differs from its dataset attribute value.
+    """
+    attribute_to_column = {
+        'genebuild.last_geneset_update': Genome.genebuild_date,
+        'genebuild.annotation_source': Genome.annotation_source,
+        'genebuild.provider_name': Genome.provider_name,
+    }
+
+    details = {}
+    for attribute_name, column in attribute_to_column.items():
+        mismatches = (
+            db_session.query(
+                Genome.genome_uuid,
+                column.label('genome_value'),
+                DatasetAttribute.value.label('attribute_value')
+            )
+            .join(GenomeDataset, Genome.genome_id == GenomeDataset.genome_id)
+            .join(DatasetAttribute, GenomeDataset.dataset_id == DatasetAttribute.dataset_id)
+            .join(Attribute, DatasetAttribute.attribute_id == Attribute.attribute_id)
+            .filter(
+                Attribute.name == attribute_name,
+                column != DatasetAttribute.value
+            )
+            .distinct()
+            .all()
+        )
+        for row in mismatches:
+            genome_details = details.setdefault(row.genome_uuid, {})
+            genome_details[f"genome.{column.key}"] = row.genome_value
+            genome_details[f"attribute.{attribute_name}"] = row.attribute_value
+
+    if details:
+        database = db_session.get_bind().url.render_as_string(hide_password=True)
+        error_lines = [
+            f"Genomes not matching genebuild attributes: {len(details)}. Release path: {database}",
+            "Full list:",
+            *(
+                f"{{{genome_uuid}: {{"
+                + ", ".join(f"{key}: {value}" for key, value in details[genome_uuid].items())
+                + "}}"
+                for genome_uuid in sorted(details)
+            ),
+        ]
+        raise AssertionError("\n".join(error_lines))
