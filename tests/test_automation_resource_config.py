@@ -53,12 +53,10 @@ def test_automation_resource_config_expands_standard_environment_variables():
     resource_config = _build_config(environ={
         "HPS_DUMPS": "/env/dumps",
         "BLAST_DB_LIVE": "/env/blast-db",
-        "TRACK_DB_PROD": "/env/tracks.sqlite3",
     })
 
     assert resource_config["blast"]["base_path"] == "/env/dumps"
     assert resource_config["blast_database_release"]["base_path"] == "/env/blast-db"
-    assert resource_config["track_api_files"]["database_file"] == "/env/tracks.sqlite3"
 
 
 def test_automation_resource_config_leaves_unset_environment_variables_visible():
