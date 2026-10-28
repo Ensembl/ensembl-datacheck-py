@@ -119,6 +119,14 @@
             "ignore": "False",
             "uri": ""
         },
+        "solr_duplicates": {
+            "ignore": "True",
+            "uri": "",
+            "collection": "",
+            "page_size": 5000,
+            "timeout": 120,
+            "ignored_fields": ["id", "_version_"]
+        },
         "compara_dev": {
           "ignore": "True",
           "uri": ""
