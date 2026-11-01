@@ -33,7 +33,11 @@ import pytest
 from ensembl.datacheck.functions.bb_bw_utils import bb_bw_reader
 from ensembl.datacheck.functions.file_checks import file_exists
 
-pytestmark = pytest.mark.dataset_type("structural_variant")
+pytestmark = [
+                pytest.mark.dataset_type("structural_variant"),
+                pytest.mark.file_extension("bb"),
+                pytest.mark.file_extension("bigbed")
+            ]
 
 EXTRA_FIELDS = ["id", "variety", "reference", "alts", "group", "severity", "extent"]
 MAX_ENTRIES_PER_CHROM = 10000
