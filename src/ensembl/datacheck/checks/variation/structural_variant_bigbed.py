@@ -34,7 +34,7 @@ from ensembl.datacheck.functions.bb_bw_utils import bb_bw_reader
 from ensembl.datacheck.functions.file_checks import file_exists
 
 pytestmark = [
-                pytest.mark.dataset_type("structural_variant"),
+                pytest.mark.dataset_type("structural_variants"),
                 pytest.mark.file_extension("bb"),
                 pytest.mark.file_extension("bigbed")
             ]

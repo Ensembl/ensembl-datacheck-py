@@ -45,7 +45,7 @@ from ensembl.datacheck.functions.vcf_sampling import (
 # module level marker to select test per filetype and dataset type
 pytestmark = [ 
                pytest.mark.dataset_type('short_variants'),
-               pytest.mark.dataset_type('structural_variant'),
+               pytest.mark.dataset_type('structural_variants'),
                pytest.mark.file_extension("bw"), 
                pytest.mark.file_extension("bigwig")
             ]
