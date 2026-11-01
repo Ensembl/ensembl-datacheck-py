@@ -19,7 +19,7 @@ variation/structural_variant_vcf.py
 This module performs checks specific to structural variant VCF files.
 
 Checks performed:
-1. check_sv_extent: Every record has a usable extent (INFO/SVLEN or INFO/END).
+1. check_id_is_not_graph_node: Identifiers do not contain graph nodes.
 2. check_symbolic_alts_well_formed: Symbolic ALTs are well formed, including <CN=n>.
 3. check_non_symbolic_min_size: Non-symbolic records are at least 50 bp.
 """
@@ -42,12 +42,7 @@ MAX_REPORTED_FAILURES = 10
 SYMBOLIC_ALT = re.compile(r"^<[^<>\s,]+>$")
 COPY_NUMBER_ALT = re.compile(r"^<CN=?\d+>$")
 NON_SYMBOLIC_ALT = re.compile(r"^[ACGTNacgtn]+$")
-
-
-def _as_list(value) -> list:
-    if value is None:
-        return []
-    return list(value) if isinstance(value, (list, tuple)) else [value]
+GRAPH_NODE_ID = re.compile(r"(?:[<>]\d+)+")
 
 
 def _record_label(record) -> str:
@@ -61,36 +56,30 @@ def _assert_no_failures(failures: list[str], message: str) -> None:
     )
 
 
-def check_sv_extent(target_file: Path):
+def check_id_is_not_graph_node(target_file: Path):
     """
-    Check that every record has a usable extent.
+    Check that the identifier field does not contain graph nodes.
 
-    A record needs a non-zero INFO/SVLEN or an INFO/END greater than POS,
-    otherwise the variant cannot be given an extent downstream.
+    Specifically, HGSVC3 source file are non-accessioned identifier with graph node ids
+    and we replace them with modified SPDI identifiers.
 
     Args:
         target_file: Path to the structural variant VCF file.
 
     Raises:
-        AssertionError: If any record has neither a non-zero SVLEN nor END > POS.
+        AssertionError: If any identifier are malformed such as containing graph nodes.
     """
     reader = vcf_reader(target_file)
     failures = []
     try:
         for record in reader:
-            svlens = [
-                value for value in _as_list(record.INFO.get("SVLEN"))
-                if isinstance(value, (int, float)) and value != 0
-            ]
-            end = record.INFO.get("END")
-            has_proper_end = isinstance(end, (int, float)) and end > record.POS
-            if not svlens and not has_proper_end:
-                failures.append(_record_label(record))
+            if record.ID and GRAPH_NODE_ID.fullmatch(record.ID):
+                failures.append(f"{record.CHROM}:{record.POS} ({record.ID})")
     finally:
         reader.close()
 
     _assert_no_failures(
-        failures, f"{len(failures)} record(s) have neither a non-zero SVLEN nor END > POS."
+        failures, f"{len(failures)} record(s) have a malformed identifier."
     )
 
 
