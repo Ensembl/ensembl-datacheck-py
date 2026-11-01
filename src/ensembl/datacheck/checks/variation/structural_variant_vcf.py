@@ -31,7 +31,11 @@ import pytest
 
 from ensembl.datacheck.functions.vcf_utils import vcf_reader
 
-pytestmark = pytest.mark.dataset_type("structural_variant")
+pytestmark = [
+                pytest.mark.dataset_type("structural_variant"),
+                pytest.mark.file_extension("vcf"),
+                pytest.mark.file_extension("vcf.gz")
+            ]
 
 MIN_SV_SIZE = 50
 MAX_REPORTED_FAILURES = 10
