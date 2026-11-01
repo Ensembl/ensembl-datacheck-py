@@ -434,6 +434,18 @@ def pytest_collection_modifyitems(items, config):
             if markers and not any(dataset_type in marker.args for marker in markers):
                 item.add_marker(pytest.mark.skip(reason=f"Skipping due to dataset_type mismatch: {dataset_type}"))
 
+    target_file = config.getoption("target_file")
+    if target_file:
+        file_name = pathlib.Path(target_file).name.lower()
+        for item in items:
+            markers = tuple(item.iter_markers(name="file_extension"))
+            if markers and not any(
+                file_name.endswith(f".{extension.lower()}")
+                for marker in markers
+                for extension in marker.args
+            ):
+                item.add_marker(pytest.mark.skip(reason=f"Skipping due to file_extension mismatch: {file_name}"))
+
     for item in items:
         callspec = getattr(item, "callspec", None)
 

@@ -61,15 +61,18 @@ def test_configure_json_report_defaults_ignores_non_json_report_runs():
 
 
 class _DummyItem:
-    def __init__(self, *dataset_types):
+    def __init__(self, *dataset_types, extensions=()):
         self._markers = [
             pytest.mark.dataset_type(dataset_type)
             for dataset_type in dataset_types
+        ] + [
+            pytest.mark.file_extension(extension)
+            for extension in extensions
         ]
         self.callspec = None
 
     def iter_markers(self, name=None):
-        return iter(self._markers if name == "dataset_type" else ())
+        return iter(marker for marker in self._markers if marker.name == name)
 
     def add_marker(self, marker):
         self._markers.append(marker)
@@ -82,12 +85,15 @@ class _DummyItem:
 class _DummyCollectionConfig:
     datacheck_cache_hit = False
 
-    def __init__(self, dataset_type):
+    def __init__(self, dataset_type=None, target_file=None):
         self.dataset_type = dataset_type
+        self.target_file = target_file
 
     def getoption(self, name):
         if name == "dataset_type":
             return self.dataset_type
+        if name == "target_file":
+            return self.target_file
         if name == "--collect-only":
             return False
         raise AssertionError(f"Unexpected option: {name}")
@@ -118,6 +124,28 @@ def test_collection_skips_nothing_when_dataset_type_is_not_selected():
     items = [_DummyItem("short_variants"), _DummyItem("structural_variant")]
 
     pytest_collection_modifyitems(items, _DummyCollectionConfig(None))
+
+    assert not any(item.skipped for item in items)
+
+
+def test_collection_skips_items_for_other_file_extensions():
+    bigbed_check = _DummyItem(extensions=("bb", "bigbed"))
+    bigwig_check = _DummyItem(extensions=("bw", "bigwig"))
+    vcf_check = _DummyItem(extensions=("vcf.gz",))
+    generic_check = _DummyItem()
+    items = [bigbed_check, bigwig_check, vcf_check, generic_check]
+
+    pytest_collection_modifyitems(
+        items, _DummyCollectionConfig(target_file="/data/sample.bb")
+    )
+
+    assert [item.skipped for item in items] == [False, True, True, False]
+
+
+def test_collection_skips_nothing_without_target_file():
+    items = [_DummyItem(extensions=("bb",)), _DummyItem(extensions=("vcf.gz",))]
+
+    pytest_collection_modifyitems(items, _DummyCollectionConfig())
 
     assert not any(item.skipped for item in items)
 
