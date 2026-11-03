@@ -28,6 +28,7 @@ import pathlib
 import json
 import yaml
 import os
+import re
 from copy import deepcopy
 from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 
@@ -52,6 +53,11 @@ AUTOMATION_CONFIG_FIELDS = (
 PARAM_ALIASES = {
     "base_dir": "blast_database_release.base_path",
     "blast_database_release_base_dir": "blast_database_release.base_path",
+}
+_ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+ENVIRONMENT_VARIABLE_DEFAULTS = {
+    "BASE_DUMPS": "HPS_DUMPS",
+    "BASE_BLAST_DB": "BLAST_DB_LIVE",
 }
 
 
@@ -99,6 +105,39 @@ def _deep_merge_config(base_config, override_config):
         else:
             merged_config[key] = deepcopy(value)
     return merged_config
+
+
+def _expand_environment_variables(config, environ):
+    """Expand ``${VARIABLE}`` references in string configuration values.
+
+    Generic automation variables can fall back to their Production TEAM
+    equivalents. A directly configured generic variable always takes priority.
+    Leave an unavailable variable unchanged so a configuration can still be
+    inspected or overridden without requiring every runtime resource variable.
+    The consuming check will then report its configured path if it is used.
+    """
+    if isinstance(config, dict):
+        return {
+            key: _expand_environment_variables(value, environ)
+            for key, value in config.items()
+        }
+    if isinstance(config, list):
+        return [_expand_environment_variables(value, environ) for value in config]
+    if not isinstance(config, str):
+        return config
+
+    def expand_variable(match):
+        variable_name = match.group(1)
+        if variable_name in environ:
+            return environ[variable_name]
+
+        default_variable_name = ENVIRONMENT_VARIABLE_DEFAULTS.get(variable_name)
+        if default_variable_name in environ:
+            return environ[default_variable_name]
+
+        return match.group(0)
+
+    return _ENVIRONMENT_VARIABLE_PATTERN.sub(expand_variable, config)
 
 
 def _parse_key_value_params(raw_params):
@@ -212,6 +251,7 @@ def _build_automation_resource_config(
         specified_config = _load_config(resolved_config_path)
 
     resource_config = _deep_merge_config(bundled_config, specified_config)
+    resource_config = _expand_environment_variables(resource_config, environ)
     resource_config = _apply_config_overrides(
         resource_config,
         _automation_environment_overrides(environ),
