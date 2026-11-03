@@ -126,5 +126,9 @@
         "compara_mongo_uri": {
           "ignore": "False",
           "uri": ""
+        },
+        "stage_site": {
+          "ignore": "False",
+          "uri": "https://staging-2020.ensembl.org"
         }
 }
