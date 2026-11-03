@@ -44,6 +44,13 @@ AUTOMATION_CONFIG_FIELDS = (
     "optional_datasets",
     "ignore_attached_optional_datasets_from_release",
     "check_release_info",
+    "index_dbm",
+    "index_file",
+    "index_key_templates",
+    "index_backend",
+    "mongo_resource",
+    "mongo_database",
+    "report",
     "subfolder",
     "ignore",
     "type",
@@ -307,23 +314,66 @@ def mongo_client(request, automation_resource_config):
     if not resource_type:
         raise ValueError("Please parametrize the mongo_client fixture with a resource type")
 
-    # Get resource config
+    client = _create_mongo_resource_client(resource_type, automation_resource_config)
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+def _create_mongo_resource_client(resource_type, automation_resource_config):
+    """Create a client using the same resource settings for all Mongo checks."""
     resource = automation_resource_config.get(resource_type)
     if not resource:
         pytest.skip(f"Resource '{resource_type}' not found in config file")
-
     if resource.get("ignore") == "True":
         pytest.skip(f"Skipped '{resource_type}' check as ignore=True in config")
-
     mongo_uri = resource.get("uri")
     if not mongo_uri:
         pytest.skip(f"Mongo URI missing for '{resource_type}'")
-
-    # Create client and yield to test
     from pymongo import MongoClient
+    return MongoClient(mongo_uri)
 
-    client = MongoClient(mongo_uri)
-    yield client
 
-    # Cleanup
-    client.close()
+@pytest.fixture(scope="session")
+def refget_index_config(automation_resource_config):
+    """Settings for the shared MD5 index, independent of genome directories."""
+    config = automation_resource_config.get("refget_index")
+    assert config, "Missing 'refget_index' section in automation resource config."
+    if config.get("ignore") in (True, "True"):
+        pytest.skip("Skipped refget_index check as ignore=True in config")
+    assert config.get("index_file"), "Configure refget_index.index_file with the shared Tkrzw index path."
+    assert config.get("mongo_resource"), "Configure refget_index.mongo_resource."
+    return config
+
+
+@pytest.fixture(scope="session")
+def refget_index_genomes(request, refget_index_config):
+    """Use automation genome records in one batch, selected only by UUID."""
+    from ensembl.datacheck.checks.refget_expected_index_db import normalize_genomes
+    selected = normalize_genomes(request.config.getoption("genome_uuid"))
+    # An explicit database needs no version lookup: the checksum query itself
+    # validates every requested UUID, without a genebuild/release filter.
+    if refget_index_config.get("mongo_database"):
+        return list(selected.values())
+    records = list(get_genomes_from_metadata_db(
+        db_url=request.config.getoption("database"),
+        release_name=None,
+        genome_uuids=sorted(selected),
+    ))
+    by_uuid = normalize_genomes(records)
+    if set(by_uuid) != set(selected):
+        raise ValueError("Automation metadata did not return every requested genome UUID.")
+    return list(by_uuid.values())
+
+
+@pytest.fixture(scope="session")
+def refget_index_mongo_client(refget_index_config, automation_resource_config):
+    """Use the configured Thoas resource with the standard Mongo lifecycle."""
+    client = _create_mongo_resource_client(
+        refget_index_config["mongo_resource"], automation_resource_config,
+    )
+    try:
+        yield client
+    finally:
+        client.close()
