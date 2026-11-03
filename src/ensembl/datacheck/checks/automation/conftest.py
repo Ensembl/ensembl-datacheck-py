@@ -55,6 +55,10 @@ PARAM_ALIASES = {
     "blast_database_release_base_dir": "blast_database_release.base_path",
 }
 _ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+ENVIRONMENT_VARIABLE_DEFAULTS = {
+    "BASE_DUMPS": "HPS_DUMPS",
+    "BASE_BLAST_DB": "BLAST_DB_LIVE",
+}
 
 
 def _resolve_automation_resource_config_path(config):
@@ -106,6 +110,8 @@ def _deep_merge_config(base_config, override_config):
 def _expand_environment_variables(config, environ):
     """Expand ``${VARIABLE}`` references in string configuration values.
 
+    Generic automation variables can fall back to their Production TEAM
+    equivalents. A directly configured generic variable always takes priority.
     Leave an unavailable variable unchanged so a configuration can still be
     inspected or overridden without requiring every runtime resource variable.
     The consuming check will then report its configured path if it is used.
@@ -120,9 +126,18 @@ def _expand_environment_variables(config, environ):
     if not isinstance(config, str):
         return config
 
-    return _ENVIRONMENT_VARIABLE_PATTERN.sub(
-        lambda match: environ.get(match.group(1), match.group(0)), config
-    )
+    def expand_variable(match):
+        variable_name = match.group(1)
+        if variable_name in environ:
+            return environ[variable_name]
+
+        default_variable_name = ENVIRONMENT_VARIABLE_DEFAULTS.get(variable_name)
+        if default_variable_name in environ:
+            return environ[default_variable_name]
+
+        return match.group(0)
+
+    return _ENVIRONMENT_VARIABLE_PATTERN.sub(expand_variable, config)
 
 
 def _parse_key_value_params(raw_params):

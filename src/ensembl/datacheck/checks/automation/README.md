@@ -32,15 +32,30 @@ export ENSEMBL_DATACHECK_BLAST_DATABASE_FILES_BASE_PATH="/path/to/blast_db"
 ```
 
 The bundled configuration expands `${VARIABLE}` values using the process
-environment. With the Production TEAM module in the question loaded, it uses:
+environment. Its portable resource locations are:
 
-- `HPS_DUMPS` for generated dumps (`blast`, `blastdbs`, `refget`, `tracks`, and
+- `BASE_DUMPS` for generated dumps (`blast`, `blastdbs`, `refget`, `tracks`, and
   FTP dumps)
-- `BLAST_DB_LIVE` for the live BLAST database release and synchronisation checks
+- `BASE_BLAST_DB` for the live BLAST database release and synchronisation checks
 
-Set these variables before running the corresponding checks when that module is
-not loaded. An unset variable is deliberately left visible in the resolved
-configuration so it can be overridden with `ENSEMBL_DATACHECK_*` or `--params`.
+When the generic variables are unset, they default to the Production TEAM
+module variables `HPS_DUMPS` and `BLAST_DB_LIVE`, respectively. Export the
+generic variables to select another backend at runtime:
+
+```bash
+# Optional on Production TEAM hosts: these are the built-in fallbacks.
+export HPS_DUMPS="/path/to/production/dumps"
+export BLAST_DB_LIVE="/path/to/production/blast-db"
+
+# Local or CI override: these take precedence over the fallbacks.
+export BASE_DUMPS="/path/to/local/dumps"
+export BASE_BLAST_DB="/path/to/local/blast-db"
+```
+
+Any other `${VARIABLE}` in a resource configuration is expanded directly from
+the process environment. An unset variable is deliberately left visible in the
+resolved configuration so it can be overridden with `ENSEMBL_DATACHECK_*` or
+`--params`.
 
 Runtime `--params` overrides use dotted config paths:
 

@@ -49,7 +49,7 @@ def test_automation_resource_config_uses_bundled_config_by_default():
     assert resource_config["blast_database_release"]["expected_files"]
 
 
-def test_automation_resource_config_expands_standard_environment_variables():
+def test_automation_resource_config_uses_production_environment_fallbacks():
     resource_config = _build_config(environ={
         "HPS_DUMPS": "/env/dumps",
         "BLAST_DB_LIVE": "/env/blast-db",
@@ -62,7 +62,28 @@ def test_automation_resource_config_expands_standard_environment_variables():
 def test_automation_resource_config_leaves_unset_environment_variables_visible():
     resource_config = _build_config()
 
-    assert resource_config["blast"]["base_path"] == "${HPS_DUMPS}"
+    assert resource_config["blast"]["base_path"] == "${BASE_DUMPS}"
+
+
+def test_automation_resource_config_generic_environment_variables_win_over_fallbacks():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "HPS_DUMPS": "/production/dumps",
+        "BASE_BLAST_DB": "/generic/blast-db",
+        "BLAST_DB_LIVE": "/production/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/generic/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/generic/blast-db"
+
+
+def test_automation_resource_config_resource_override_wins_over_generic_variable():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "ENSEMBL_DATACHECK_BLAST_BASE_PATH": "/resource/dumps",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/resource/dumps"
 
 
 def test_automation_resource_config_supports_historical_relative_resource_config_path():
