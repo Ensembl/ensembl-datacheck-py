@@ -102,6 +102,7 @@ ensembl-datacheck --test=automation/automation_genesearch_solr ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_track_api_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_refget_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_thoas_mongo_load ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_thoas_genome_mapping ${COMMON_ARGS}
 ```
 
 ## 3) Run all automation tests
@@ -141,3 +142,6 @@ JSON reports are written with two-space indentation by default. Override with
   release path. Native output includes the full discrepancy list inline. JSON
   reports store the same full list under the failure's `details.items` field.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).
+- `automation_thoas_genome_mapping` checks that each genome has a document with
+  its `genome_uuid` and `release_name` in the Thoas `metadata.genome_mapping`
+  collection, with a `release_version` matching the metadata database.
