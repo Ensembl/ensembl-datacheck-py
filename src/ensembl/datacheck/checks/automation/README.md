@@ -130,11 +130,13 @@ JSON reports are written with two-space indentation by default. Override with
 - `automation_blast_database_release` reads `base_path` and `expected_files`
   from the `blast_database_release` config. It does not use `--release_name`;
   `base_path` is the BLAST database release directory to check.
-- `automation_blast_database_release_sync` reads `base_path` and
-  `manifest_path` from `blast_database_release_sync`. It validates only the
-  files named in the just-generated source manifest at the release target,
-  including their MD5 checksums; it does not query metadata or inspect
-  pre-existing release entries.
+- `automation_blast_database_release_sync` reads `base_path`,
+  `manifest_path`, and `expected_files` from `blast_database_release_sync`.
+  It uses `--database` and `--release_name` to obtain the release's
+  genebuild genomes from metadata, checks every genome directory and required
+  file at the release target, and verifies MD5 checksums for the files in the
+  just-generated source manifest. It does not reject pre-existing entries;
+  stale-data cleanup remains a separate step.
 - Automation resource config precedence is:
   `--params` > `--use_alt` > `ENSEMBL_DATACHECK_*` environment variables >
   `--automation_resource_config` JSON > bundled repo JSON.

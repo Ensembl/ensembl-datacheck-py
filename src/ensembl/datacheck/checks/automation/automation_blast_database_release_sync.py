@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Validate the files copied into a BLAST database release.
+"""Validate files copied into a BLAST database release.
 
-This is intentionally narrower than ``automation_blast_database_release``.
-It verifies the just-generated source manifest against the target release and
-does not inspect metadata or pre-existing release entries.  It can therefore
-run between rsync and stale-data cleanup.
+The sync check runs before stale-data cleanup. It validates the complete
+expected set for the requested metadata release, but deliberately does not
+reject entries from an earlier release that cleanup has not removed yet. It
+also verifies checksums for the files copied in this invocation.
 """
 
 import hashlib
 from pathlib import Path
 
 import pytest
+
+from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 
 
 CHUNK_SIZE = 1024 * 1024
@@ -46,6 +48,45 @@ def _get_required_path(config, key):
     path = Path(value)
     assert path.exists(), f"BLAST database release sync {key} does not exist: {path}"
     return path
+
+
+def _get_expected_files(config):
+    """Return the required BLAST database files for each release genome."""
+    expected_files = config.get("expected_files", [])
+    assert expected_files, (
+        "Missing blast_database_release_sync.expected_files in automation resource config."
+    )
+    return expected_files
+
+
+def _get_release_genome_uuids(user_cli):
+    """Return genebuild genome UUIDs belonging to the requested release."""
+    database_uri = user_cli.getoption("database")
+    assert database_uri, (
+        "Missing --database for blast_database_release_sync. "
+        "Provide the metadata database URL."
+    )
+    release_name = user_cli.getoption("release_name")
+    assert release_name, (
+        "Missing --release_name for blast_database_release_sync. "
+        "Provide the Ensembl release being synced."
+    )
+    genomes = get_genomes_from_metadata_db(
+        db_url=database_uri,
+        release_name=release_name,
+    )
+    genome_uuids = sorted({genome["genome_uuid"] for genome in genomes})
+    assert genome_uuids, f"No genomes returned for release {release_name}."
+    return genome_uuids
+
+
+def _expected_relative_file_paths(genome_uuids, expected_files):
+    """Build the release-relative BLAST database paths required by metadata."""
+    return {
+        (Path(genome_uuid[:3]) / genome_uuid / expected_file).as_posix()
+        for genome_uuid in genome_uuids
+        for expected_file in expected_files
+    }
 
 
 def _read_manifest(manifest_path):
@@ -91,8 +132,8 @@ def _md5sum(path):
 
 
 @pytest.fixture(scope="session")
-def blast_database_release_sync_context(automation_resource_config):
-    """Load the target directory and source manifest once per test session."""
+def blast_database_release_sync_context(user_cli, automation_resource_config):
+    """Load the target directory, metadata expectations, and source manifest."""
     config = _get_sync_config(automation_resource_config)
     release_path = _get_required_path(config, "base_path")
     assert release_path.is_dir(), (
@@ -102,7 +143,41 @@ def blast_database_release_sync_context(automation_resource_config):
     assert manifest_path.is_file(), (
         f"BLAST database release sync manifest_path is not a file: {manifest_path}"
     )
-    return {"release_path": release_path, "entries": _read_manifest(manifest_path)}
+    genome_uuids = _get_release_genome_uuids(user_cli)
+    expected_file_paths = _expected_relative_file_paths(
+        genome_uuids,
+        _get_expected_files(config),
+    )
+    return {
+        "release_path": release_path,
+        "entries": _read_manifest(manifest_path),
+        "genome_uuids": genome_uuids,
+        "expected_file_paths": expected_file_paths,
+    }
+
+
+@pytest.mark.automation_resource("blast_database_release_sync")
+def check_blast_database_release_sync_genomes_exist(blast_database_release_sync_context):
+    """Check that every genome in the requested metadata release was copied."""
+    release_path = blast_database_release_sync_context["release_path"]
+    missing = [
+        genome_uuid
+        for genome_uuid in blast_database_release_sync_context["genome_uuids"]
+        if not (release_path / genome_uuid[:3] / genome_uuid).is_dir()
+    ]
+    assert not missing, "Missing release BLAST genomes:\n" + "\n".join(sorted(missing))
+
+
+@pytest.mark.automation_resource("blast_database_release_sync")
+def check_blast_database_release_sync_expected_files_exist(blast_database_release_sync_context):
+    """Check every metadata-release genome has every required BLAST file."""
+    release_path = blast_database_release_sync_context["release_path"]
+    missing = [
+        relative_path
+        for relative_path in blast_database_release_sync_context["expected_file_paths"]
+        if not (release_path / relative_path).is_file()
+    ]
+    assert not missing, "Missing release BLAST files:\n" + "\n".join(sorted(missing))
 
 
 @pytest.mark.automation_resource("blast_database_release_sync")
