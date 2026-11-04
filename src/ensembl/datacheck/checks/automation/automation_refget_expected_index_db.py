@@ -25,7 +25,7 @@ from ensembl.datacheck.checks import refget_expected_index_db as refget
 
 @pytest.fixture(scope="module")
 def refget_index_report(
-    db_session, refget_index_genomes, refget_index_config, refget_index_mongo_client,
+    db_session, refget_index_genomes, refget_index_config, mongo_client,
 ):
     """Query all requested genomes once and share the source-specific report."""
     if db_session is None:
@@ -33,7 +33,7 @@ def refget_index_report(
     config = refget_index_config
     report = refget.validate_genome_index(
         db_session, refget_index_genomes, config["index_file"],
-        mongo_client=refget_index_mongo_client,
+        mongo_client=mongo_client,
         mongo_database=config.get("mongo_database"),
         index_backend=config.get("index_backend", "auto"),
     )
@@ -44,11 +44,13 @@ def refget_index_report(
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("refget")
+@pytest.mark.parametrize("mongo_client", ["refget_index"], indirect=True)
 def check_refget_assembly_sequence_index_db(refget_index_report):
     refget.check_refget_assembly_sequence_index_db(refget_index_report)
 
 
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("refget")
+@pytest.mark.parametrize("mongo_client", ["refget_index"], indirect=True)
 def check_refget_mongo_index_db(refget_index_report):
     refget.check_refget_mongo_index_db(refget_index_report)
