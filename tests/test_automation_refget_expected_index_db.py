@@ -395,3 +395,99 @@ def test_requested_native_backend_requires_binding(fake_index):
     index, _ = fake_index
     with pytest.raises(RuntimeError, match='Python tkrzw binding'):
         checks.missing_index_md5s(index, {MD5_A}, backend='python')
+
+
+def test_automation_uses_existing_mongo_fixture_with_configured_resource(tmp_path):
+    """Exercise real pytest collection, shared fixture caching and cleanup."""
+    import os
+    import subprocess
+    from pathlib import Path
+    log = tmp_path / 'events.txt'
+    (tmp_path / 'pytest.ini').write_text('[pytest]\npython_functions = check_*\nmarkers =\n    automation_resource(name): automation resource\n')
+    (tmp_path / 'conftest.py').write_text('''
+import os
+from pathlib import Path
+import pytest
+import pymongo
+from ensembl.datacheck.checks.automation.conftest import (
+    pytest_generate_tests, automation_resource_config, mongo_client,
+    refget_index_config, refget_index_genomes,
+)
+from ensembl.datacheck.checks import refget_expected_index_db as engine
+
+log = Path(os.environ['REFGET_FIXTURE_TEST_LOG'])
+def record(value):
+    with log.open('a') as out: out.write(value + '\\n')
+
+class Client:
+    def __init__(self, uri): record('create:' + uri)
+    def close(self): record('close')
+pymongo.MongoClient = Client
+
+def validate(session, genomes, index_file, mongo_client, **kwargs):
+    assert isinstance(mongo_client, Client)
+    assert genomes == [{'genome_uuid': 'uuid-1'}, {'genome_uuid': 'uuid-2'}]
+    record('validate')
+    return {'sources': {'assembly_sequence': {'passed': True}, 'mongodb': {'passed': True}}}
+engine.validate_genome_index = validate
+
+@pytest.fixture(scope='session')
+def db_session(): return object()
+
+def pytest_addoption(parser):
+    parser.addoption('--test', default='automation/automation_refget_expected_index_db')
+    parser.addoption('--genome_uuid', default='uuid-1,uuid-2')
+    parser.addoption('--automation_resource_config', default=None)
+    parser.addoption('--params', action='append', default=[])
+    parser.addoption('--use_alt', dest='use_alt', action='store_true')
+''')
+    (tmp_path / 'test_checks.py').write_text('''
+from ensembl.datacheck.checks.automation.automation_refget_expected_index_db import (
+    refget_index_report, check_refget_assembly_sequence_index_db, check_refget_mongo_index_db,
+)
+''')
+    env = dict(os.environ, REFGET_FIXTURE_TEST_LOG=str(log))
+    result = subprocess.run([
+        sys.executable, '-m', 'pytest', '-c', str(tmp_path/'pytest.ini'),
+        str(tmp_path/'test_checks.py'), '-q', '-p', 'no:cacheprovider',
+        '--params', 'refget_index.index_file=/test/index.tkh,refget_index.mongo_database=release_116_1,refget_index.mongo_resource=thoas_mongo_public_resource_uri,thoas_mongo_public_resource_uri.uri=mongodb://configured.invalid',
+    ], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '2 passed' in result.stdout
+    assert log.read_text().splitlines() == ['create:mongodb://configured.invalid', 'validate', 'close']
+
+
+def test_automation_report_passes_existing_client_unchanged(monkeypatch, tmp_path):
+    from ensembl.datacheck.checks.automation import automation_refget_expected_index_db as automation
+    from ensembl.datacheck.checks.automation import conftest as fixtures
+    client = object()
+    captured = []
+    def validate(*args, **kwargs):
+        captured.append(kwargs['mongo_client'])
+        return {'sources': {'assembly_sequence': {'passed': True}, 'mongodb': {'passed': True}}}
+    monkeypatch.setattr(automation.refget, 'validate_genome_index', validate)
+    automation.refget_index_report.__wrapped__(object(), [{'genome_uuid': 'uuid-1'}], {
+        'index_file': '/test/index.tkh', 'mongo_database': 'release_116_1',
+    }, client)
+    assert captured == [client]
+    assert not hasattr(fixtures, 'refget_index_mongo_client')
+
+
+@pytest.mark.parametrize('resource_name', ['thoas_mongo_internal_resource_uri', 'refget_index'])
+def test_existing_mongo_fixture_resolves_direct_and_configured_resources(monkeypatch, resource_name):
+    from ensembl.datacheck.checks.automation import conftest as fixtures
+    selected = []
+    closed = []
+    client = SimpleNamespace(close=lambda: closed.append(True))
+    resources = {'refget_index': {'mongo_resource': 'thoas_mongo_internal_resource_uri'},
+                 'thoas_mongo_internal_resource_uri': {'uri': 'mongodb://test.invalid'}}
+    def create(name, config):
+        selected.append(name)
+        assert config is resources
+        return client
+    monkeypatch.setattr(fixtures, '_create_mongo_resource_client', create)
+    fixture = fixtures.mongo_client.__wrapped__(SimpleNamespace(param=resource_name), resources)
+    assert next(fixture) is client
+    fixture.close()
+    assert selected == ['thoas_mongo_internal_resource_uri']
+    assert closed == [True]
