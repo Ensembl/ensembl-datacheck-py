@@ -144,7 +144,10 @@ runs; it does not require configuring the index for unrelated automation checks.
 Mongo authentication comes from the existing resource named by
 `refget_index.mongo_resource` (default: `thoas_mongo_internal_resource_uri`).
 The check uses the existing session-scoped `mongo_client` fixture, indirectly
-parametrized with that resource, including its standard cleanup and skip behavior.
+parametrized with `refget_index`. The fixture resolves its `mongo_resource` from
+`automation_resource_config`, including the standard cleanup and skip behavior.
+Configuration is resolved once during fixture setup; no collection-time config
+loading is needed for the Mongo selection.
 No refget-specific Mongo client is created. No credentials are stored in the
 bundled config.
 
