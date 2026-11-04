@@ -17,6 +17,8 @@
 
 import json
 
+import pytest
+
 from ensembl.datacheck.checks.automation import conftest as automation_conftest
 
 
@@ -47,6 +49,43 @@ def test_automation_resource_config_uses_bundled_config_by_default():
 
     assert "blast_database_release" in resource_config
     assert resource_config["blast_database_release"]["expected_files"]
+
+
+def test_automation_resource_config_uses_production_environment_fallbacks():
+    resource_config = _build_config(environ={
+        "HPS_DUMPS": "/env/dumps",
+        "BLAST_DB_LIVE": "/env/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/env/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/env/blast-db"
+
+
+def test_automation_resource_config_leaves_unset_environment_variables_visible():
+    resource_config = _build_config()
+
+    assert resource_config["blast"]["base_path"] == "${BASE_DUMPS}"
+
+
+def test_automation_resource_config_generic_environment_variables_win_over_fallbacks():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "HPS_DUMPS": "/production/dumps",
+        "BASE_BLAST_DB": "/generic/blast-db",
+        "BLAST_DB_LIVE": "/production/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/generic/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/generic/blast-db"
+
+
+def test_automation_resource_config_resource_override_wins_over_generic_variable():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "ENSEMBL_DATACHECK_BLAST_BASE_PATH": "/resource/dumps",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/resource/dumps"
 
 
 def test_automation_resource_config_supports_historical_relative_resource_config_path():
@@ -253,14 +292,25 @@ def test_refget_index_missing_environment_gives_actionable_error():
         automation_conftest.refget_index_config.__wrapped__(config)
 
 
-def test_environment_expansion_handles_nested_values_without_mutation():
-    original = {"path": "${BASE_DUMPS}/refget", "files": ["${REFGET_INDEX_FILE}", None, 1, False],
-                "uri": "mongodb://user:literal$token@example.invalid", "unset": "${NOT_CONFIGURED}"}
-    expanded = automation_conftest._expand_environment_placeholders(original, {
-        "BASE_DUMPS": "/env/dumps", "REFGET_INDEX_FILE": "/env/index.tkh",
-    })
-    assert expanded["path"] == "/env/dumps/refget"
-    assert expanded["files"] == ["/env/index.tkh", None, 1, False]
-    assert expanded["uri"] == original["uri"]
-    assert expanded["unset"] == "${NOT_CONFIGURED}"
-    assert original["path"] == "${BASE_DUMPS}/refget"
+@pytest.mark.parametrize("environ, expected_root", [
+    ({"HPS_DUMPS": "/production/dumps"}, "/production/dumps"),
+    ({"BASE_DUMPS": "/generic/dumps", "HPS_DUMPS": "/production/dumps"}, "/generic/dumps"),
+])
+def test_refget_index_uses_main_environment_mapping_in_json(tmp_path, environ, expected_root):
+    config_path = tmp_path / "refget_config.json"
+    config_path.write_text(json.dumps({
+        "refget_index": {"index_file": "${BASE_DUMPS}/refget/indexdb.tkh"},
+    }))
+    config = _build_config(config_path=str(config_path), environ=environ)
+    assert config["refget_index"]["index_file"] == expected_root + "/refget/indexdb.tkh"
+    assert automation_conftest.refget_index_config.__wrapped__(config) is config["refget_index"]
+
+
+def test_refget_unset_placeholder_supports_process_environment(monkeypatch):
+    import os
+    monkeypatch.delenv("REFGET_INDEX_FILE", raising=False)
+    assert automation_conftest._expand_environment_variables(
+        "${REFGET_INDEX_FILE}", os.environ,
+    ) == "${REFGET_INDEX_FILE}"
+    config = _build_config(environ=os.environ, params=["refget_index.index_file=/cli/index.tkh"])
+    assert config["refget_index"]["index_file"] == "/cli/index.tkh"

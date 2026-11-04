@@ -61,6 +61,11 @@ PARAM_ALIASES = {
     "base_dir": "blast_database_release.base_path",
     "blast_database_release_base_dir": "blast_database_release.base_path",
 }
+_ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+ENVIRONMENT_VARIABLE_DEFAULTS = {
+    "BASE_DUMPS": "HPS_DUMPS",
+    "BASE_BLAST_DB": "BLAST_DB_LIVE",
+}
 
 
 def _resolve_automation_resource_config_path(config):
@@ -107,6 +112,39 @@ def _deep_merge_config(base_config, override_config):
         else:
             merged_config[key] = deepcopy(value)
     return merged_config
+
+
+def _expand_environment_variables(config, environ):
+    """Expand ``${VARIABLE}`` references in string configuration values.
+
+    Generic automation variables can fall back to their Production TEAM
+    equivalents. A directly configured generic variable always takes priority.
+    Leave an unavailable variable unchanged so a configuration can still be
+    inspected or overridden without requiring every runtime resource variable.
+    The consuming check will then report its configured path if it is used.
+    """
+    if isinstance(config, dict):
+        return {
+            key: _expand_environment_variables(value, environ)
+            for key, value in config.items()
+        }
+    if isinstance(config, list):
+        return [_expand_environment_variables(value, environ) for value in config]
+    if not isinstance(config, str):
+        return config
+
+    def expand_variable(match):
+        variable_name = match.group(1)
+        if variable_name in environ:
+            return environ[variable_name]
+
+        default_variable_name = ENVIRONMENT_VARIABLE_DEFAULTS.get(variable_name)
+        if default_variable_name and default_variable_name in environ:
+            return environ[default_variable_name]
+
+        return match.group(0)
+
+    return _ENVIRONMENT_VARIABLE_PATTERN.sub(expand_variable, config)
 
 
 def _parse_key_value_params(raw_params):
@@ -205,27 +243,6 @@ def _apply_alt_base_paths(config):
     return resolved_config
 
 
-def _expand_environment_placeholders(value, environ):
-    """Resolve ${NAME} in config values using the supplied runtime environment.
-
-    Leave unset names intact so optional resources can remain unconfigured and
-    callers can validate required fields. Expand after overrides; a literal
-    override does not require the bundled placeholder to be configured.
-    """
-    if isinstance(value, str):
-        return re.sub(
-            r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
-            lambda match: environ.get(match.group(1), match.group(0)),
-            value,
-        )
-    if isinstance(value, dict):
-        return {key: _expand_environment_placeholders(child, environ)
-                for key, child in value.items()}
-    if isinstance(value, list):
-        return [_expand_environment_placeholders(child, environ) for child in value]
-    return value
-
-
 def _build_automation_resource_config(
     config_path,
     environ,
@@ -241,17 +258,17 @@ def _build_automation_resource_config(
         specified_config = _load_config(resolved_config_path)
 
     resource_config = _deep_merge_config(bundled_config, specified_config)
+    resource_config = _expand_environment_variables(resource_config, environ)
     resource_config = _apply_config_overrides(
         resource_config,
         _automation_environment_overrides(environ),
     )
     if use_alt:
         resource_config = _apply_alt_base_paths(resource_config)
-    resource_config = _apply_config_overrides(
+    return _apply_config_overrides(
         resource_config,
         _parse_key_value_params(raw_params),
     )
-    return _expand_environment_placeholders(resource_config, environ)
 
 
 @pytest.fixture(scope="session")

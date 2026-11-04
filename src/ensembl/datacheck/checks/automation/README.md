@@ -31,6 +31,32 @@ Optional resource config overrides:
 export ENSEMBL_DATACHECK_BLAST_DATABASE_FILES_BASE_PATH="/path/to/blast_db"
 ```
 
+The bundled configuration expands `${VARIABLE}` values using the process
+environment. Its portable resource locations are:
+
+- `BASE_DUMPS` for generated dumps (`blast`, `blastdbs`, `refget`, `tracks`, and
+  FTP dumps)
+- `BASE_BLAST_DB` for the live BLAST database release and synchronisation checks
+
+When the generic variables are unset, they default to the Production TEAM
+module variables `HPS_DUMPS` and `BLAST_DB_LIVE`, respectively. Export the
+generic variables to select another backend at runtime:
+
+```bash
+# Optional on Production TEAM hosts: these are the built-in fallbacks.
+export HPS_DUMPS="/path/to/production/dumps"
+export BLAST_DB_LIVE="/path/to/production/blast-db"
+
+# Local or CI override: these take precedence over the fallbacks.
+export BASE_DUMPS="/path/to/local/dumps"
+export BASE_BLAST_DB="/path/to/local/blast-db"
+```
+
+Any other `${VARIABLE}` in a resource configuration is expanded directly from
+the process environment. An unset variable is deliberately left visible in the
+resolved configuration so it can be overridden with `ENSEMBL_DATACHECK_*` or
+`--params`.
+
 Runtime `--params` overrides use dotted config paths:
 
 ```bash
@@ -76,6 +102,7 @@ ensembl-datacheck --test=automation/automation_genesearch_solr ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_track_api_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_refget_expected_files ${COMMON_ARGS}
 ensembl-datacheck --test=automation/automation_thoas_mongo_load ${COMMON_ARGS}
+ensembl-datacheck --test=automation/automation_thoas_genome_mapping ${COMMON_ARGS}
 ```
 
 ## 3) Run all automation tests
@@ -115,6 +142,9 @@ JSON reports are written with two-space indentation by default. Override with
   release path. Native output includes the full discrepancy list inline. JSON
   reports store the same full list under the failure's `details.items` field.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).
+- `automation_thoas_genome_mapping` checks that each genome has a document with
+  its `genome_uuid` and `release_name` in the Thoas `metadata.genome_mapping`
+  collection, with a `release_version` matching the metadata database.
 
 ## Refget index checksum coverage
 
@@ -135,8 +165,9 @@ export REFGET_INDEX_FILE="${BASE_DUMPS}/refget/indexdb.tkh"
 ```
 
 For a local file, set `REFGET_INDEX_FILE=/path/to/indexdb.tkh` directly.
-`${NAME}` placeholders expand after overrides, preserving config-file <
-`ENSEMBL_DATACHECK_*` environment < dotted `--params` precedence. A literal
+The shared automation loader expands `${NAME}` in JSON configuration before
+applying resource-specific environment and CLI overrides. Precedence remains
+config-file < `ENSEMBL_DATACHECK_*` environment < dotted `--params`. A literal
 `refget_index.index_file` override takes precedence over `REFGET_INDEX_FILE`.
 An unset index placeholder fails with a configuration message when this check
 runs; it does not require configuring the index for unrelated automation checks.
