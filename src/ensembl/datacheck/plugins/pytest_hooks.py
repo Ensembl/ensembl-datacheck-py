@@ -102,6 +102,7 @@ def pytest_addoption(parser):
     parser.addoption("--subsample-size", dest="subsample_size", default=10000, help="Optional number of records to subsample large target files to for content checks. Set to 0 to disable subsampling.")
     parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
     parser.addoption("--test", required=True, help="Name of the test to run")
+    parser.addoption("--dataset-type", default=None, help="Run checks marked for this dataset type")
     parser.addoption("--no-warnings", action="store_true", default=False, help="Disable warnings display")
     parser.addoption("--native-output", action="store_true", default=False, help="Use native warnings display")
     parser.addoption("--no-cache-results", action="store_true", default=False, help="Disable caching of results")
@@ -425,6 +426,25 @@ def pytest_collection_modifyitems(items, config):
     # execution while leaving sessionfinish/the JSON report intact.
     if getattr(config, "datacheck_cache_hit", False):
         pytest.exit("Using cached results, exiting.", returncode=0)
+
+    dataset_type = config.getoption("dataset_type")
+    if dataset_type:
+        for item in items:
+            markers = tuple(item.iter_markers(name="dataset_type"))
+            if markers and not any(dataset_type in marker.args for marker in markers):
+                item.add_marker(pytest.mark.skip(reason=f"Skipping due to dataset_type mismatch: {dataset_type}"))
+
+    target_file = config.getoption("target_file")
+    if target_file:
+        file_name = pathlib.Path(target_file).name.lower()
+        for item in items:
+            markers = tuple(item.iter_markers(name="file_extension"))
+            if markers and not any(
+                file_name.endswith(f".{extension.lower()}")
+                for marker in markers
+                for extension in marker.args
+            ):
+                item.add_marker(pytest.mark.skip(reason=f"Skipping due to file_extension mismatch: {file_name}"))
 
     for item in items:
         callspec = getattr(item, "callspec", None)
