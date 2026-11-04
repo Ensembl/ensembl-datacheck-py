@@ -1,12 +1,17 @@
-#!/usr/bin/env python3
 # See the NOTICE file distributed with this work for additional information
 # regarding copyright ownership.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy at http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Check assembly_sequence and MongoDB MD5 keys separately in refget.
 
@@ -270,6 +275,7 @@ def _missing_index_md5s_cli(index_file, expected):
 
 
 def _coverage_report(expected_by_genome, missing):
+    """Summarize distinct MD5 coverage and missing keys for each genome."""
     expected = set().union(*expected_by_genome.values())
     missing = expected & missing
     genomes = {}
@@ -363,6 +369,7 @@ def refget_index_report(db_session, request, params):
 
 
 def _assert_source(report, source):
+    """Fail with source-specific counts and examples when MD5 keys are missing."""
     coverage = report["sources"][source]
     assert coverage["passed"], (
         f"{source}: {coverage['missing_md5_count']} / "
