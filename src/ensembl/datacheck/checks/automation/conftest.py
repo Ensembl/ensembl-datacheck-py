@@ -28,6 +28,7 @@ import pathlib
 import json
 import yaml
 import os
+import re
 from copy import deepcopy
 from ensembl.datacheck.functions.utils import get_genomes_from_metadata_db
 
@@ -204,6 +205,27 @@ def _apply_alt_base_paths(config):
     return resolved_config
 
 
+def _expand_environment_placeholders(value, environ):
+    """Resolve ${NAME} in config values using the supplied runtime environment.
+
+    Leave unset names intact so optional resources can remain unconfigured and
+    callers can validate required fields. Expand after overrides; a literal
+    override does not require the bundled placeholder to be configured.
+    """
+    if isinstance(value, str):
+        return re.sub(
+            r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+            lambda match: environ.get(match.group(1), match.group(0)),
+            value,
+        )
+    if isinstance(value, dict):
+        return {key: _expand_environment_placeholders(child, environ)
+                for key, child in value.items()}
+    if isinstance(value, list):
+        return [_expand_environment_placeholders(child, environ) for child in value]
+    return value
+
+
 def _build_automation_resource_config(
     config_path,
     environ,
@@ -225,10 +247,11 @@ def _build_automation_resource_config(
     )
     if use_alt:
         resource_config = _apply_alt_base_paths(resource_config)
-    return _apply_config_overrides(
+    resource_config = _apply_config_overrides(
         resource_config,
         _parse_key_value_params(raw_params),
     )
+    return _expand_environment_placeholders(resource_config, environ)
 
 
 @pytest.fixture(scope="session")
@@ -309,11 +332,14 @@ def mongo_client(request, automation_resource_config):
     """
     Returns a MongoClient for a specific resource type.
     The resource type is passed dynamically via request.param from the test.
+    Sections containing mongo_resource delegate to that configured Mongo resource.
     """
     resource_type = getattr(request, "param", None)
     if not resource_type:
         raise ValueError("Please parametrize the mongo_client fixture with a resource type")
 
+    # A resource section may select a shared Mongo resource via mongo_resource.
+    resource_type = automation_resource_config.get(resource_type, {}).get("mongo_resource", resource_type)
     client = _create_mongo_resource_client(resource_type, automation_resource_config)
     try:
         yield client
@@ -342,7 +368,10 @@ def refget_index_config(automation_resource_config):
     assert config, "Missing 'refget_index' section in automation resource config."
     if config.get("ignore") in (True, "True"):
         pytest.skip("Skipped refget_index check as ignore=True in config")
-    assert config.get("index_file"), "Configure refget_index.index_file with the shared Tkrzw index path."
+    index_file = config.get("index_file")
+    assert index_file and "${" not in str(index_file), (
+        "Set REFGET_INDEX_FILE or override refget_index.index_file with the shared Tkrzw index path."
+    )
     assert config.get("mongo_resource"), "Configure refget_index.mongo_resource."
     return config
 
@@ -365,15 +394,3 @@ def refget_index_genomes(request, refget_index_config):
     if set(by_uuid) != set(selected):
         raise ValueError("Automation metadata did not return every requested genome UUID.")
     return list(by_uuid.values())
-
-
-@pytest.fixture(scope="session")
-def refget_index_mongo_client(refget_index_config, automation_resource_config):
-    """Use the configured Thoas resource with the standard Mongo lifecycle."""
-    client = _create_mongo_resource_client(
-        refget_index_config["mongo_resource"], automation_resource_config,
-    )
-    try:
-        yield client
-    finally:
-        client.close()
