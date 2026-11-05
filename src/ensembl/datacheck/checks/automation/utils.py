@@ -23,22 +23,80 @@ wildcard patterns, are present in the specified directory. If any files are
 missing, an assertion is raised indicating the missing files.
 """
 import logging
+from functools import lru_cache
 from pathlib import Path
-from ensembl.production.metadata.api.adaptors.genome import GenomeAdaptor
-from ensembl.production.metadata.api.adaptors.vep import  VepAdaptor
+import re
+from ensembl.production.metadata.api.factories.utils import format_accession_path
+from ensembl.production.metadata.api.adaptors.vep import VepAdaptor
 
-def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None ) :
-    """
-    Prepare FTP relative paths for the given genome uuid from metadata.
-    """
+_GENEBUILD_MONTH = re.compile(r"^(\d{4})-(\d{2})")
 
-    if dataset_name and dataset_name.startswith("vep") :
+
+@lru_cache(maxsize=None)
+def _vep_adaptor(metadata_uri, file_type):
+    """Reuse one adaptor (and its DB connection pool) per metadata DB and VEP file type."""
+    return VepAdaptor(metadata_uri, file=file_type)
+
+
+def get_ftp_paths(metadata_uri, taxonomy_uri, genome_uuid, dataset_name=None, genebuild_date=None,
+                  annotation_source=None, assembly_accession=None, release_label=None):
+    """
+    Prepare FTP relative paths for the given genome uuid.
+
+    VEP datasets (dataset_name starting with "vep") are looked up in the metadata DB; all other
+    dataset paths are built from the genome's metadata passed in, without a DB query.
+    """
+    if dataset_name and dataset_name.startswith("vep"):
         file_type = dataset_name.split("_", maxsplit=1)[-1] # vep_faa_location is split into ["vep", "faa_location"] and fetch faa_location
-        file_location = VepAdaptor(metadata_uri, file=file_type).fetch_vep_locations(genome_uuid)
+        file_location = _vep_adaptor(metadata_uri, file_type).fetch_vep_locations(genome_uuid)
         if isinstance(file_location, dict):
             file_location = file_location[file_type]
         return {dataset_name: file_location}
-    return GenomeAdaptor(metadata_uri, taxonomy_uri).get_public_path(genome_uuid)
+
+    match = _GENEBUILD_MONTH.match(str(genebuild_date or ""))
+    if not match:
+        raise ValueError(f"Invalid genebuild_date format for genome_uuid={genome_uuid}: {genebuild_date!r}")
+    if not annotation_source or not assembly_accession:
+        raise ValueError(
+            f"Missing annotation_source or assembly_accession for genome_uuid={genome_uuid}: "
+            f"annotation_source={annotation_source!r}, assembly_accession={assembly_accession!r}"
+        )
+
+    common_path = f"{format_accession_path(assembly_accession)}/{annotation_source.lower()}/{match[1]}_{match[2]}"
+    release_label = (release_label or "").replace("-", "_")
+
+    return [
+        {"dataset_type": "genebuild", "path": f"{common_path}/geneset"},
+        {"dataset_type": "assembly", "path": f"{common_path}/genome"},
+        {"dataset_type": "homologies", "path": f"{common_path}/homology/{release_label}"},
+        {"dataset_type": "short_variants", "path": f"{common_path}/variation/{release_label}"},
+    ]
+
+def resolve_genome_relative_path(base_path, release_root_relative, genome_uuid, resource_label):
+    """Resolve <release_root>/<genome_uuid>, allowing one extra level (e.g. run_id) before genome_uuid."""
+    base = Path(base_path)
+    release_root = base / release_root_relative
+    assert release_root.is_dir(), f"Release directory does not exist: {release_root}"
+
+    direct_relative = Path(release_root_relative) / genome_uuid
+    if (base / direct_relative).is_dir():
+        return direct_relative
+
+    nested_candidates = sorted(
+        candidate.relative_to(base)
+        for candidate in release_root.glob(f"*/{genome_uuid}")
+        if candidate.is_dir()
+    )
+    assert nested_candidates, (
+        f"{resource_label} path does not exist for genome_uuid={genome_uuid} "
+        f"under {release_root} (checked direct and one-level nested directories)"
+    )
+    assert len(nested_candidates) == 1, (
+        f"Multiple {resource_label} directories found for genome_uuid={genome_uuid}: "
+        f"{[str(path) for path in nested_candidates]}"
+    )
+    return nested_candidates[0]
+
 
 def validate_expected_files(base_path, relative_path, expected_files, resource_label):
     """Validate that a resource path exists and contains all expected files."""

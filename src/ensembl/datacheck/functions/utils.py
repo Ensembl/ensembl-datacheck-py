@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from sqlalchemy import select
 from ensembl.production.metadata.api.factories.genomes import GenomeFactory
 from ensembl.production.metadata.api.models import Dataset, GenomeDataset, DatasetStatus, EnsemblRelease, ReleaseStatus, \
     Organism, Genome, OrganismGroup, OrganismGroupMember, Assembly, AssemblySequence, DatasetSource, GenomeRelease, \
-    DatasetType
+    DatasetType, DatasetAttribute, Attribute
 
 class EnsemblDatacheckWarning(UserWarning):
     """
@@ -93,6 +94,7 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
                     Genome.production_name.label("species"),
                     Genome.created.label("genome_submitted"),
                     Genome.genebuild_date.label("genebuild_date"),
+                    Genome.annotation_source.label("annotation_source"),
                     Organism.scientific_name.label("scientific_name"),
                     DatasetSource.name.label("db_name"),
                     Assembly.accession.label("assembly_accession"),
@@ -102,8 +104,57 @@ def get_genomes_from_metadata_db(db_url, release_name=None, genome_uuids:list=No
                     Dataset.name.label("dataset_name"),
                     DatasetType.name.label("dataset_type"),
                     EnsemblRelease.name.label("genome_release"),
+                    EnsemblRelease.label.label("release_label"),
                     GenomeDataset.release_id.label("genome_dataset_release_id"),
                     GenomeDataset.is_current.label("genome_dataset_is_current"),
                 ]
             )
     return genomes_iter
+
+
+def get_genome_dataset_attribute(db_session, genome_uuid, attribute_name, dataset_type="genebuild"):
+    """
+    Fetch a dataset attribute value (e.g. genebuild.sample_gene) for a genome.
+
+    Args:
+        db_session: SQLAlchemy session connected to the metadata database
+        genome_uuid (str): genome UUID
+        attribute_name (str): attribute name, e.g. "genebuild.sample_gene"
+        dataset_type (str): dataset type the attribute belongs to
+
+    Returns:
+        str or None: the attribute value, or None if the genome has no such attribute
+    """
+    query = (
+        select(DatasetAttribute.value)
+        .join(Attribute, DatasetAttribute.attribute_id == Attribute.attribute_id)
+        .join(Dataset, DatasetAttribute.dataset_id == Dataset.dataset_id)
+        .join(DatasetType, Dataset.dataset_type_id == DatasetType.dataset_type_id)
+        .join(GenomeDataset, GenomeDataset.dataset_id == Dataset.dataset_id)
+        .join(Genome, GenomeDataset.genome_id == Genome.genome_id)
+        .where(
+            Genome.genome_uuid == genome_uuid,
+            DatasetType.name == dataset_type,
+            Attribute.name == attribute_name,
+        )
+        .limit(1)
+    )
+    return db_session.execute(query).scalar_one_or_none()
+
+
+def get_current_release_labels(db_session, release_type):
+    """
+    Fetch the labels of the current releases of a type (e.g. partial) from ensembl_release.
+
+    Args:
+        db_session: SQLAlchemy session connected to the metadata database
+        release_type (str): release type, e.g. "partial" or "integrated"
+
+    Returns:
+        list[str]: labels of the current releases of that type
+    """
+    query = select(EnsemblRelease.label).where(
+        EnsemblRelease.release_type == release_type,
+        EnsemblRelease.is_current == 1,
+    )
+    return list(db_session.execute(query).scalars())

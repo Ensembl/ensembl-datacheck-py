@@ -81,12 +81,11 @@ def _assert_discrepancy_failure(
     assert not list(tmp_path.glob("blast_database_release_*.txt"))
 
 
-def test_get_blast_database_release_base_dir_defaults_to_nfs_path():
-    assert blast_release._get_blast_database_release_base_dir(
-        automation_resource_config={"blast_database_release": {}},
-    ) == (
-        "/nfs/production/flicek/ensembl/production/blastdb"
-    )
+def test_get_blast_database_release_base_dir_requires_configured_base_path():
+    with pytest.raises(AssertionError, match="Missing blast_database_release.base_path"):
+        blast_release._get_blast_database_release_base_dir(
+            automation_resource_config={"blast_database_release": {}},
+        )
 
 
 def test_get_blast_database_release_base_dir_uses_config_base_path():

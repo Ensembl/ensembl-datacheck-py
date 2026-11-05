@@ -160,8 +160,7 @@ def check_variant_exist_from_source(target_file, source_variants_subsample):
 
     Args:
         target_file (pathlib.Path or None): Path to target BigWig file.
-        source_file (pathlib.Path or None): Path to source VCF file.
-        variation_params (dict): Variation-specific parsed command-line params.
+        source_variants_subsample (dict): A subsample of variants from the source file to check.
 
     Warns:
         EnsemblDatacheckWarning: If no source variants are sampled; validation

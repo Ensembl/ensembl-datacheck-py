@@ -55,7 +55,7 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
-
+.report.json
 # pytest
 .pytest_cache/
 
@@ -99,6 +99,3 @@ db.sqlite3
 *.bak
 *.orig
 /build/
-
-# Datachecks output files
-.report.json

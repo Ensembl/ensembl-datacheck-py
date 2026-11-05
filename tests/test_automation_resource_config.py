@@ -49,6 +49,43 @@ def test_automation_resource_config_uses_bundled_config_by_default():
     assert resource_config["blast_database_release"]["expected_files"]
 
 
+def test_automation_resource_config_uses_production_environment_fallbacks():
+    resource_config = _build_config(environ={
+        "HPS_DUMPS": "/env/dumps",
+        "BLAST_DB_LIVE": "/env/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/env/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/env/blast-db"
+
+
+def test_automation_resource_config_leaves_unset_environment_variables_visible():
+    resource_config = _build_config()
+
+    assert resource_config["blast"]["base_path"] == "${BASE_DUMPS}"
+
+
+def test_automation_resource_config_generic_environment_variables_win_over_fallbacks():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "HPS_DUMPS": "/production/dumps",
+        "BASE_BLAST_DB": "/generic/blast-db",
+        "BLAST_DB_LIVE": "/production/blast-db",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/generic/dumps"
+    assert resource_config["blast_database_release"]["base_path"] == "/generic/blast-db"
+
+
+def test_automation_resource_config_resource_override_wins_over_generic_variable():
+    resource_config = _build_config(environ={
+        "BASE_DUMPS": "/generic/dumps",
+        "ENSEMBL_DATACHECK_BLAST_BASE_PATH": "/resource/dumps",
+    })
+
+    assert resource_config["blast"]["base_path"] == "/resource/dumps"
+
+
 def test_automation_resource_config_supports_historical_relative_resource_config_path():
     resource_config = _build_config(
         config_path=(
@@ -129,15 +166,15 @@ def test_automation_resource_config_use_alt_does_not_affect_resources_without_su
 ):
     config_path = tmp_path / "resource_config.json"
     config_path.write_text(json.dumps({
-        "blast_database_release": {
+        "resource_without_subfolder": {
             "base_path": "/specified/release",
         },
     }))
 
     resource_config = _build_config(config_path=str(config_path), use_alt=True)
 
-    assert resource_config["blast_database_release"]["base_path"] == "/specified/release"
-    assert "use_alt_base_path" not in resource_config["blast_database_release"]
+    assert resource_config["resource_without_subfolder"]["base_path"] == "/specified/release"
+    assert "use_alt_base_path" not in resource_config["resource_without_subfolder"]
 
 
 def test_automation_resource_config_cli_base_path_override_wins_over_use_alt(tmp_path):
@@ -192,3 +229,22 @@ def test_automation_resource_config_fixture_uses_request_options(monkeypatch):
     )
 
     assert resource_config["blast_database_files"]["base_path"] == "/cli/blastdb"
+
+
+def test_automation_resource_config_supports_track_api_files_check_release_info_override():
+    resource_config = _build_config(
+        params=["track_api_files.check_release_info=true"]
+    )
+
+    assert resource_config["track_api_files"]["check_release_info"] == "true"
+
+
+def test_automation_resource_config_supports_track_api_optional_dataset_cutoff_override():
+    resource_config = _build_config(
+        params=["track_api_files.ignore_attached_optional_datasets_from_release=29"]
+    )
+
+    assert (
+        resource_config["track_api_files"]["ignore_attached_optional_datasets_from_release"]
+        == "29"
+    )
