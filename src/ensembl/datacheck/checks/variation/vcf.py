@@ -21,6 +21,7 @@ This module performs variation-specific vcf checks.
 
 from math import isclose
 from pathlib import Path
+import re
 import warnings
 
 import pytest
@@ -389,7 +390,7 @@ def check_summary_stats_frequency(target_variants_subsample: dict, params: dict[
         if species is None:
             raise ValueError("species param must be defined for summary stats frequency check.")
 
-        if species != "homo_sapiens":
+        if re.fullmatch(r"homo_sapiens(?:_(?:GRCh)?(?:37|38))?", species):
             pytest.skip(f"Check not relevant for species {species}, skipping ...")
 
         for variant_id in target_variants_subsample:
