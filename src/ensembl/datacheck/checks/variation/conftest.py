@@ -137,7 +137,7 @@ def csq_specs_species_filtered(CSQ_SPECS: dict[str, Csq_subfield_spec], params: 
     filtered_specs = {}
     for field, spec in CSQ_SPECS.items():
         spec_species = spec.get('species', None)
-        if spec_species == 'all' or spec_species == param_species:
+        if spec_species == 'all' or param_species.startswith(spec_species):
             filtered_specs[field] = spec
     return filtered_specs
 
