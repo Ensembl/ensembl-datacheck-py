@@ -99,4 +99,3 @@ db.sqlite3
 *.bak
 *.orig
 /build/
-.report.json

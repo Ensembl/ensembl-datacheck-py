@@ -27,7 +27,7 @@ import shutil
 import subprocess
 
 from ensembl.datacheck.functions.file_checks import file_exists
-from ensembl.datacheck.functions.io_utils import bb_bw_reader
+from ensembl.datacheck.functions.bb_bw_utils import bb_bw_reader
 
 
 def check_exist(target_file):
@@ -41,6 +41,7 @@ def check_exist(target_file):
         AssertionError: If the target file is missing.
     """
     assert file_exists(target_file), "The target file does not exist."
+
 
 def check_validity(target_file):
     """
@@ -57,7 +58,7 @@ def check_validity(target_file):
     try:
         reader = bb_bw_reader(target_file)
         assert reader is not None, "Could not open target file as BigBed."
-        assert reader.isBigBed(), "The target file is not recognised as BigBed."
+        assert reader.isBigBed(), "The target file is not recognised as BigBed."  # noqa: E501
     except Exception as exc:
         _fallback_validate_with_bigbedinfo(target_file, exc)
     finally:

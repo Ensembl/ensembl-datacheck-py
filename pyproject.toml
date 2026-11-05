@@ -36,6 +36,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "pyBigWig",
     "cyvcf2",
+    "pysam~=0.24.0",
     "pytest-json-report>=1.5.0",
     "pytest-xdist==3.8.0",
     "pyyaml>=6.0"
