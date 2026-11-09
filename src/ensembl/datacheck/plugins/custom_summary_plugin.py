@@ -13,8 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 import warnings
+
+import pytest
+from _pytest.subtests import SubtestReport
+
 
 class CustomSummaryPlugin:
     """
@@ -40,6 +43,7 @@ class CustomSummaryPlugin:
         self.warnings = []
         self.failures = []
         self.passed_tests = []
+        self._failed_subtest_nodeids = set()
         self.no_warnings = config.getoption("--no-warnings")
         self.passed = 0
         self.skipped = 0
@@ -65,10 +69,20 @@ class CustomSummaryPlugin:
         Args:
             report (pytest.TestReport): The test report object.
         """
+        if isinstance(report, SubtestReport):
+            if report.failed and report.when == "call":
+                self._failed_subtest_nodeids.add(report.nodeid)
+                self.failures.append(self._format_assertion_error(report))
+            return
+
         if report.passed and report.when == "call":
+            if report.nodeid in self._failed_subtest_nodeids:
+                return
             self.passed += 1
             self.passed_tests.append(report.nodeid)
         elif report.failed and report.when == "call":
+            if self._is_subtest_aggregate_failure(report):
+                return
             formatted_error = self._format_assertion_error(report)
             self.failures.append(formatted_error)
         elif report.skipped:
@@ -85,6 +99,8 @@ class CustomSummaryPlugin:
             str: Formatted assertion error message.
         """
         target_path, line_number, test_name = report.location
+        if isinstance(report, SubtestReport):
+            test_name = f"{test_name} {self._format_subtest_context(report)}"
         if isinstance(report.longrepr, tuple):
             longreprtext = "\n".join(map(str, report.longrepr))
         else:
@@ -101,6 +117,28 @@ class CustomSummaryPlugin:
             assertion_message = longrepr_lines[0] if longrepr_lines else ""
 
         return f"FAILED::{test_name}::{assertion_message}"
+
+    @staticmethod
+    def _format_subtest_context(report):
+        """Return the message and parameters that identify a subtest."""
+        context_parts = []
+        if report.context.msg is not None:
+            context_parts.append(f"[{report.context.msg}]")
+        if report.context.kwargs:
+            parameters = ", ".join(
+                f"{key}={value}" for key, value in report.context.kwargs.items()
+            )
+            context_parts.append(f"({parameters})")
+        return " ".join(context_parts) or "(<subtest>)"
+
+    @staticmethod
+    def _is_subtest_aggregate_failure(report):
+        """Return whether a top-level failure only summarizes failed subtests."""
+        return (
+            isinstance(report.longrepr, str)
+            and report.longrepr.startswith("contains ")
+            and report.longrepr.endswith((" failed subtest", " failed subtests"))
+        )
 
     def pytest_terminal_summary(self, terminalreporter):
         """

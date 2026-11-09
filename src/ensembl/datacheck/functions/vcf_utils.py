@@ -14,23 +14,97 @@
 # limitations under the License.
 
 """
-vcf_sampling.py
+vcf_utils.py
 
-Shared helpers for VCF record counting and random-region variant sampling.
+Shared helpers for VCF parsing, record counting and random-region variant sampling.
 """
 
+from pathlib import Path
 import random
 import shutil
 import subprocess
-from ensembl.datacheck.functions.io_utils import vcf_reader
+from typing import Any
+import warnings
+
+from cyvcf2 import VCF
+from pysam import HTSFile
+
+from ensembl.datacheck.functions.file_checks import file_exists
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 
 
-def get_vcf_variant_count(source_file):
+def is_vcf_file(hts_file: HTSFile) -> bool:
     """
-    Get total number of VCF records from source_file using bcftools.
+    Check if the given file object (opened as HTSFile) is a VCF file.
 
     Args:
-        source_file (pathlib.Path or str): Path to source VCF file.
+        hts_file: HTSFile object received from pysam.VariantFile
+
+    Returns:
+        bool: True if the file is a VCF file, False otherwise.
+    """
+    return  hts_file.is_vcf
+
+
+def is_bgzf_compressed_file(hts_file: HTSFile) -> bool:
+    """
+    Check if the given file object (opened as HTSFile) is a bgzipped file.
+
+    Args:
+        hts_file: HTSFile object received from pysam.VariantFile
+
+    Returns:
+        bool: True if the file is a bgzipped file, False otherwise.
+    """
+    return hts_file.compression == 'BGZF'
+
+
+def find_vcf_index(vcf_file: Path | str) -> Path | None:
+    """
+    Find the index file for a VCF file.
+
+    Args:
+        vcf_file: Path to the VCF file.
+
+    Returns:
+        Path: Path to the index file if found, None otherwise.
+    """
+    csi_path = str(vcf_file) + '.csi'
+    tbi_path = str(vcf_file) + '.tbi'
+
+    index_file: str | None = None
+    if file_exists(csi_path):
+        index_file = csi_path
+    elif file_exists(tbi_path):
+        index_file = tbi_path
+    else:
+        return None
+
+    return Path(index_file)
+
+
+def vcf_reader(vcf_file_path: str | Path) -> VCF:
+    """
+    Provide a cyvcf2 VCF reader opened on a VCF file path.
+
+    Args:
+        vcf_file_path: The path to the VCF file.
+
+    Returns:
+        cyvcf2.cyvcf2.VCF: Open reader on success.
+
+    Raises:
+        Exception: Propagates import/open failures from cyvcf2.
+    """
+    return VCF(str(vcf_file_path))
+
+
+def get_vcf_variant_count(file_path: Path | str) -> int | None:
+    """
+    Get total number of VCF records in a file using bcftools.
+
+    Args:
+        file_path: Path to a VCF file.
 
     Returns:
         int: Total number of VCF records.
@@ -41,8 +115,9 @@ def get_vcf_variant_count(source_file):
     """
     assert shutil.which("bcftools") is not None, "bcftools is required but not available in PATH."
 
+    # Query the index file rather than the VCF itself to prevent weirdness with index discovery on non-standard filename extensions (like .vcf.bgzf).
     process = subprocess.run(
-        ["bcftools", "index", "--nrecords", str(source_file)],
+        ["bcftools", "index", "--nrecords", str(file_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -59,6 +134,46 @@ def get_vcf_variant_count(source_file):
         raise AssertionError(
             f"Could not parse bcftools record count output: '{output}'"
         ) from exc
+
+
+def get_vcf_variant_count_by_chr(filepath: str) -> dict | None:
+    """Return per-chromosome variant counts for a VCF.
+
+    Attempts to use 'bcftools index --stats'.
+    Falls back to file content iterating if the command fails.
+
+    Args:
+        vcf (str): Path to VCF file.
+
+    Returns:
+        dict|int: Mapping {chrom: count} or None on failure.
+    """
+    if filepath is None:
+        warnings.warn(
+            EnsemblDatacheckWarning(
+                "Could not get variant count - no file provided",
+                'functions/vcf_utils.py',
+                'get_vcf_variant_count_by_chr')
+        )
+        return None
+
+    process = subprocess.run(
+        ["bcftools", "index", "--stats", filepath],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    if process.returncode == 0:
+        chrom_variant_counts = {}
+        for chrom_stat in process.stdout.decode().strip().split("\n"):
+            (chrom, _, count) = chrom_stat.split("\t")
+            chrom_variant_counts[chrom] = int(count)
+
+        return chrom_variant_counts
+
+    else:
+        return None
 
 
 def get_max_random_regions(params):
@@ -96,8 +211,23 @@ def get_max_random_regions(params):
     assert parsed_value > 0, f"Parameter {param_name} must be a positive integer."
     return parsed_value
 
+def parse_CSQ_format(vcf_file: Path | str) -> list[str]:
+    try:
+        with vcf_reader(vcf_file) as reader:
+            csq_info_description = str(reader.get_header_type("CSQ")["Description"])
+            csq_fields = [
+                csq.strip(' "')
+                for csq in csq_info_description.split("Format: ")[1].split("|")
+            ]
+        return csq_fields
 
-def build_variant_list_from_source(source_file, params, no_variants=10000):
+    except Exception as exc:
+        raise AssertionError(
+            f"Failed to parse CSQ format: {exc}"
+        ) from exc
+
+
+def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants:int=10000) -> dict[str, dict[str, Any]]:
     """
     Build a sampled variant dictionary from source VCF.
 
@@ -109,9 +239,9 @@ def build_variant_list_from_source(source_file, params, no_variants=10000):
     - for each sampled region, include at most 11 variants
 
     Args:
-        source_file (pathlib.Path or str): Path to source VCF.
-        params (dict): Parsed command-line params.
-        no_variants (int): Target number of sampled variants. Defaults to 10000.
+        vcf_file: Path to VCF file to sample.
+        params: Parsed command-line params.
+        no_variants: Target number of sampled variants. Defaults to 10000.
 
     Returns:
         dict: Variant dictionary keyed by variant ID; duplicate IDs overwrite
@@ -121,16 +251,13 @@ def build_variant_list_from_source(source_file, params, no_variants=10000):
         AssertionError: If source VCF cannot be read or lacks required headers.
     """
     max_random_regions = get_max_random_regions(params)
-    summary_stats_fields = ["NVPHN", "NGPHN", "NTCSQ", "NRCSQ", "NGENE", "NCITE", "RAF"]
+    SUMMARY_STATS_FIELDS = ["NVPHN", "NGPHN", "NTCSQ", "NRCSQ", "NGENE", "NCITE", "RAF"]
 
     reader = None
     try:
-        reader = vcf_reader(source_file)
-        csq_info_description = reader.get_header_type("CSQ")["Description"]
-        csq_fields = [
-            csq.strip()
-            for csq in csq_info_description.split("Format: ")[1].split("|")
-        ]
+        csq_fields = parse_CSQ_format(vcf_file)
+
+        reader = vcf_reader(vcf_file)
 
         chroms = reader.seqnames
         assert chroms, "Source VCF has no sequence names in the header."
@@ -162,7 +289,7 @@ def build_variant_list_from_source(source_file, params, no_variants=10000):
                     }
                     variant_list[variant_id]["csqs"].append(csq_hash)
 
-                for ss_field in summary_stats_fields:
+                for ss_field in SUMMARY_STATS_FIELDS:
                     variant_list[variant_id][ss_field] = variant.INFO.get(ss_field, None)
 
                 total_no_variants += 1

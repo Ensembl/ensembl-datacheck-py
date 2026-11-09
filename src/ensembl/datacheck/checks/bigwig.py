@@ -27,7 +27,7 @@ import shutil
 import subprocess
 
 from ensembl.datacheck.functions.file_checks import file_exists
-from ensembl.datacheck.functions.io_utils import bb_bw_reader
+from ensembl.datacheck.functions.bb_bw_utils import bb_bw_reader
 
 
 def check_exist(target_file):
