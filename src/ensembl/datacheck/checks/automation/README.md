@@ -147,3 +147,60 @@ JSON reports are written with two-space indentation by default. Override with
 - `automation_thoas_genome_mapping` checks that each genome has a document with
   its `genome_uuid` and `release_name` in the Thoas `metadata.genome_mapping`
   collection, with a `release_version` matching the metadata database.
+
+## Refget index checksum coverage
+
+`automation/automation_refget_expected_index_db` checks metadata
+`assembly_sequence.md5` and MongoDB region/protein/transcript MD5 keys separately.
+It requires `--genome_uuid UUID1,UUID2`; it never selects genomes by release.
+All requested UUIDs share one checksum query and one index lookup pass.
+
+The `refget_index` resource describes the shared index; `refget` continues to
+configure the per-genome files check. Its bundled `index_file` is the generic
+placeholder `${REFGET_INDEX_FILE}`; map that variable to the index in each
+environment without changing the JSON. For example, map a generic dumps root
+at runtime and derive the index path for that environment:
+
+```bash
+export BASE_DUMPS="${HPS_DUMPS}"  # or "${NFS_DUMPS}", according to the environment
+export REFGET_INDEX_FILE="${BASE_DUMPS}/refget/indexdb.tkh"
+```
+
+For a local file, set `REFGET_INDEX_FILE=/path/to/indexdb.tkh` directly.
+The shared automation loader expands `${NAME}` in JSON configuration before
+applying resource-specific environment and CLI overrides. Precedence remains
+config-file < `ENSEMBL_DATACHECK_*` environment < dotted `--params`. A literal
+`refget_index.index_file` override takes precedence over `REFGET_INDEX_FILE`.
+An unset index placeholder fails with a configuration message when this check
+runs; it does not require configuring the index for unrelated automation checks.
+
+Mongo authentication comes from the existing resource named by
+`refget_index.mongo_resource` (default: `thoas_mongo_internal_resource_uri`).
+The check uses the existing session-scoped `mongo_client` fixture, indirectly
+parametrized with `refget_index`. The fixture resolves its `mongo_resource` from
+`automation_resource_config`, including the standard cleanup and skip behavior.
+Configuration is resolved once during fixture setup; no collection-time config
+loading is needed for the Mongo selection.
+No refget-specific Mongo client is created. No credentials are stored in the
+bundled config.
+
+For example, using the existing config-file, environment and CLI precedence:
+
+```bash
+export REFGET_INDEX_FILE=/path/to/indexdb.tkh
+export ENSEMBL_DATACHECK_THOAS_MONGO_INTERNAL_RESOURCE_URI_URI="$THOAS_MONGO_URI"
+ensembl-datacheck --test automation/automation_refget_expected_index_db \
+  --database "$METADATA_DB_URL" --genome_uuid UUID1,UUID2 \
+  --params refget_index.mongo_database=release_116_5,refget_index.index_backend=python,refget_index.report=checksums.json \
+  --no-cache-results
+```
+
+If `mongo_database` is unset, the standard automation metadata helper obtains
+records only for the supplied UUIDs with `release_name=None`; their
+`release_version` identifies `release_<version>` exactly as in the Thoas load
+check. Set `mongo_database` explicitly if a UUID has multiple release versions.
+The shared assembly checksum query then validates all supplied UUIDs. With an
+explicit Mongo database, the additional genome-version lookup is unnecessary.
+`refget_index.ignore` and the selected Mongo resource's `ignore` flag follow
+standard automation skip behavior. Missing MD5s produce separate assembly and
+Mongo failures; query/configuration errors are reported during fixture setup.
