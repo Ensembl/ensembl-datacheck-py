@@ -32,6 +32,11 @@
         "blast_database_release_sync": {
             "base_path": "${BASE_BLAST_DB}",
             "manifest_path": null,
+            "expected_files": [
+                "cdna.nhr", "cds.nhr", "pep.phr", "softmasked.nhr", "unmasked.nhr",
+                "cdna.nin", "cds.nin", "pep.pin", "softmasked.nin", "unmasked.nin",
+                "cdna.nsq", "cds.nsq", "pep.psq", "softmasked.nsq", "unmasked.nsq"
+            ],
             "type": "dir"
         },
         "refget": {

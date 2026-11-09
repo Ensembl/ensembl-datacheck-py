@@ -25,6 +25,14 @@ from ensembl.datacheck.checks.automation import (
 )
 
 
+class _DummyCli:
+    def __init__(self, options):
+        self._options = options
+
+    def getoption(self, name):
+        return self._options.get(name)
+
+
 def _md5(value):
     return hashlib.md5(value, usedforsecurity=False).hexdigest()
 
@@ -59,6 +67,50 @@ def test_sync_checks_pass_for_copied_file(tmp_path):
 
     blast_sync.check_blast_database_release_sync_files_exist(context)
     blast_sync.check_blast_database_release_sync_checksums(context)
+
+
+def test_get_release_genome_uuids_queries_requested_metadata_release(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        blast_sync,
+        "get_genomes_from_metadata_db",
+        lambda **kwargs: captured.update(kwargs) or [
+            {"genome_uuid": "def3e543-fe3d-4cc5-beea-02d2bfaa90f4"},
+            {"genome_uuid": "abc3e543-fe3d-4cc5-beea-02d2bfaa90f4"},
+        ],
+    )
+
+    assert blast_sync._get_release_genome_uuids(_DummyCli({
+        "database": "mysql://metadata",
+        "release_name": "113",
+    })) == [
+        "abc3e543-fe3d-4cc5-beea-02d2bfaa90f4",
+        "def3e543-fe3d-4cc5-beea-02d2bfaa90f4",
+    ]
+    assert captured == {
+        "db_url": "mysql://metadata",
+        "release_name": "113",
+    }
+
+
+def test_sync_expected_files_check_reports_missing_release_file(tmp_path):
+    missing_file = "abc/abc3e543-fe3d-4cc5-beea-02d2bfaa90f4/cdna.nhr"
+
+    with pytest.raises(AssertionError, match="Missing release BLAST files"):
+        blast_sync.check_blast_database_release_sync_expected_files_exist({
+            "release_path": tmp_path,
+            "expected_file_paths": {missing_file},
+        })
+
+
+def test_sync_genomes_check_reports_missing_release_genome(tmp_path):
+    genome_uuid = "abc3e543-fe3d-4cc5-beea-02d2bfaa90f4"
+
+    with pytest.raises(AssertionError, match="Missing release BLAST genomes"):
+        blast_sync.check_blast_database_release_sync_genomes_exist({
+            "release_path": tmp_path,
+            "genome_uuids": [genome_uuid],
+        })
 
 
 def test_sync_files_check_reports_missing_file(tmp_path):
