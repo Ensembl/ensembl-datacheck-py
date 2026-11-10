@@ -98,6 +98,13 @@ def pytest_addoption(parser):
         parser (pytest.Parser): The pytest parser object.
     """
     parser.addoption("--target-file", "--file", dest="target_file", default=None, help="Path to the target file to be tested")
+    parser.addoption("--validation-stage", dest="validation_stage", default=None,
+                     choices=("all", "bgzip", "bgzf", "compression", "index", "format", "completeness"),
+                     help="Run all output validation stages (default) or only the selected stage")
+    parser.addoption("--file-type", "--file_type", dest="file_type", default=None,
+                     help="Output validator type: hardmask, unmask, softmask, chrom, cdna, pep, gff3, gtf, raw_gff3, raw_gtf")
+    parser.addoption("--base-path", "--base_path", dest="base_path", default=None,
+                     help="Public FTP root for output_validation type lookup")
     parser.addoption("--source-file", dest="source_file", default=None, help="Optional path to a source file for comparison checks")
     parser.addoption("--subsample-size", dest="subsample_size", default=10000, help="Optional number of records to subsample large target files to for content checks. Set to 0 to disable subsampling.")
     parser.addoption("--params", action="append", default=[], help="Additional test parameters as key=value,key=value")
@@ -112,6 +119,8 @@ def pytest_addoption(parser):
                                                                    "is being run in an automation "
                                                                    "resource context")
     parser.addoption("--release_name", default=None, help="Release name for the datacheck run")
+    parser.addoption("--output-dir", dest="output_dir", default=None,
+                     help="Folder for the output_validation summary (output_validation_report.json) and the JSON report")
     parser.addoption("--genome_uuid", default=None, help="Genome UUID for the datacheck run")
     parser.addoption("--automation_resource_config", action="store",
                      help="Indicates the path to the automation resource config file")

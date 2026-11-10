@@ -31,9 +31,10 @@ classifiers = [
 ]
 dependencies = [
     "pytest>=8.2.2",
-    "xxhash",
+    "xxhash>=2.0",
     "ensembl-metadata-api @ git+https://github.com/Ensembl/ensembl-metadata-api.git",
     "sqlalchemy>=2.0",
+    "pymysql",
     "pyBigWig",
     "cyvcf2",
     "pytest-json-report>=1.5.0",

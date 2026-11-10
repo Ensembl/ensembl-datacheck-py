@@ -103,6 +103,24 @@
           "use_alt_base_path": 1,
           "expected_files": ["softmasked.fa.bgz"]
         },
+        "output_validation": {
+          "genome_fasta": ["unmasked.fa.bgz", "softmasked.fa.bgz", "hardmasked.fa.bgz"],
+          "cdna_fasta": "cdna.fa.bgz",
+          "peptide_fasta": "pep.fa.bgz",
+          "gff3": "genes.gff3.bgz",
+          "gtf": "genes.gtf.bgz",
+          "raw_gff3": "genes.gff3.gz",
+          "raw_gtf": "genes.gtf.gz",
+          "raw_gtf_required_attributes": ["gene_id", "gene_version", "gene_biotype", "gene_source"],
+          "chromosome_tsv": "chromosomes.tsv*",
+          "chromosome_tsv_required": false,
+          "require_gzi": false,
+          "strict_metadata_counts": false,
+          "check_genome_headers": true,
+          "compare_genome_masks": true,
+          "index_sample_size": 5,
+          "max_line_width": 80
+        },
         "thoas_mongo_public_resource_uri": {
           "ignore": "False",
           "uri": ""

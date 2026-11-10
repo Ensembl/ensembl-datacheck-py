@@ -23,7 +23,9 @@ from pathlib import Path
 
 import pytest
 
-from ensembl.datacheck.checks import output_validation as ov
+from ensembl.datacheck.functions import output_validation as ov
+from ensembl.datacheck.functions.output_validation import dispatch as ov_dispatch
+from ensembl.datacheck.functions.output_validation import geneset as ov_geneset
 
 BLOCK = 64  # tiny blocks so random access crosses BGZF block boundaries
 
@@ -146,10 +148,15 @@ GTF = (
 )
 
 
+GTF = "".join(line.rstrip("\n") +
+              ' gene_version "1"; gene_biotype "protein_coding"; gene_source "ensembl";\n'
+              for line in GTF.splitlines(keepends=True))
+
+
 @pytest.fixture(autouse=True)
 def no_external_tools(monkeypatch):
-    monkeypatch.setattr(ov, "run_gff3validator", lambda path: ov.Outcome())
-    monkeypatch.setattr(ov, "run_genepred_check", lambda path: ov.Outcome())
+    monkeypatch.setattr(ov_geneset, "run_gff3validator", lambda path: ov.Outcome())
+    monkeypatch.setattr(ov_geneset, "run_genepred_check", lambda path: ov.Outcome())
     ov._GFF3_CACHE.clear()
 
 
@@ -290,7 +297,7 @@ def test_gff3_format_errors():
 
 
 def test_external_tool_missing_is_skip_not_pass(tmp_path, monkeypatch):
-    monkeypatch.setattr(ov, "run_gff3validator", lambda path: ov.Outcome(skip="gt not found"))
+    monkeypatch.setattr(ov_geneset, "run_gff3validator", lambda path: ov.Outcome(skip="gt not found"))
     report = ov.GenesetValidation(METADATA, SETTINGS).validate_gff3(make_gff3(tmp_path))
     assert statuses(report)["format"] == ov.SKIP
     assert report.overall == ov.SKIP
@@ -384,6 +391,16 @@ def test_runner_translates_short_flags_only_for_output_validation():
     assert translate_short_flags(["--test", "fasta", "-f"]) == ["--test", "fasta", "-f"]
 
 
+@pytest.mark.parametrize("test", ["output_validation/fasta", "output_validation/geneset", "output_validation/"])
+def test_runner_translates_short_flags_for_output_validation_parts(test):
+    from ensembl.datacheck.runner import apply_output_validation_defaults, translate_short_flags
+    assert translate_short_flags([f"--test={test}", "-f", "a.fa"]) == [f"--test={test}", "--target-file", "a.fa"]
+    assert apply_output_validation_defaults([f"--test={test}", "--database", "mysql://u@h:1/db"]) == [
+        f"--test={test}", "--database", "mysql+pymysql://u@h:1/db"]
+    assert translate_short_flags(["--test=output_validation_other", "-f", "a"]) == [
+        "--test=output_validation_other", "-f", "a"]
+
+
 RAW_GTF_LAST = '2\tens\tgene\t5\t30\t.\t-\t.\tgene_id "G2"; gene_version "1"; gene_biotype "lncRNA"; gene_source "ensembl";\n'
 
 
@@ -455,7 +472,7 @@ def test_external_format_validation_runs_after_index_without_mutating_cache(tmp_
         return ov.Outcome(errors=["External validator rejected the file"], warnings=["Tool warning"])
 
     monkeypatch.setattr(validator, "csi_index_checker", check_index)
-    monkeypatch.setattr(ov, "run_gff3validator", check_format)
+    monkeypatch.setattr(ov_geneset, "run_gff3validator", check_format)
     report = validator.validate_gff3(path)
     assert events == ["index", "format"]
     assert statuses(report) == dict(zip(ov.STAGES, [ov.PASS, ov.PASS, ov.FAIL, ov.SKIP]))
@@ -552,9 +569,11 @@ def test_runner_rejects_folder_and_release_flags(flags):
 
 def test_removed_fasta_check_points_to_output_validation():
     from pathlib import Path
-    import ensembl.datacheck.checks.output_validation as ov
+    import ensembl.datacheck.runner as runner
     from ensembl.datacheck.runner import check_removed_test
-    assert not (Path(ov.__file__).parent / "fasta.py").exists()
+    checks = Path(runner.__file__).parent / "checks"
+    assert not (checks / "fasta.py").exists()
+    assert (checks / "output_validation" / "fasta.py").is_file()  # only inside output_validation/
     for args in (["--test=fasta"], ["--test", "fasta", "--file=x.fa"]):
         with pytest.raises(SystemExit, match="output_validation"):
             check_removed_test(args)
@@ -738,9 +757,9 @@ def test_genome_header_location_checks(tmp_path):
         "Headers not in the format NAME MASK:COORD_SYSTEM ASSEMBLY:NAME:START:END:STRAND (1): 3",
         "Header location names a different sequence than the ID (1): 2",
         "Header location has an invalid START, END or STRAND (1): 4",
-        "Header location length differs from the sequence length (1): 1 (header 119, sequence 120)",
     ]
-    assert warnings == ["1 headers end with whitespace"]
+    assert warnings == ["1 headers end with whitespace",
+                        "Header location length differs from the sequence length (1): 1 (header 119, sequence 120)"]
     legacy = ov.scan_fasta(_write_genome(tmp_path, "unmasked", ">1 dna:chromosome chromosome:GRCh38:1:1:4:1 REF\nACGT\n"),
                            ov.NUCLEOTIDE_UPPER)
     assert ov.genome_header_errors(legacy, "unmasked") == ([], [])
@@ -823,7 +842,7 @@ def test_ftp_type_lookup(tmp_path, monkeypatch, override):
     from ensembl.datacheck.checks.automation import utils
     genome = {"genome_uuid": "uuid", "genebuild_date": "2026-01", "annotation_source": "Ensembl",
               "assembly_accession": "GCA_000001405.29"}
-    monkeypatch.setattr(ov, "get_genomes_from_metadata_db", lambda **kwargs: iter([genome]))
+    monkeypatch.setattr(ov_dispatch, "get_genomes_from_metadata_db", lambda **kwargs: iter([genome]))
     monkeypatch.setattr(utils, "get_ftp_paths", lambda **kwargs: [
         {"dataset_type": "assembly", "path": "species/genome"},
         {"dataset_type": "genebuild", "path": "species/geneset"}])
@@ -1038,3 +1057,155 @@ def test_genome_completeness_missing_regions_fail_lengths_warn(tmp_path, mask, m
     assert any("total_genome_length" in warning for warning in report.warnings)
     if missing:
         assert report.stages[-1].details == ["Missing seq_regions (1): MT"]
+
+
+@pytest.mark.parametrize("mask", ov.GENOME_MASKS)
+@pytest.mark.parametrize("missing", [False, True])
+def test_header_length_difference_warns_and_reaches_completeness(tmp_path, mask, missing):
+    text = genome_fasta(mask).replace("GRCh38:1:1:120:1", "GRCh38:1:1:128:1")
+    if missing:
+        text = text.split(">MT")[0]
+    path = _write_genome(tmp_path, mask, text)
+    report = ov.FastaValidation(METADATA, SETTINGS).validate_genome_fasta(path, mask)
+    assert statuses(report)["format"] == ov.PASS
+    assert any("Header location length differs" in warning and "header 128, sequence 120" in warning
+               for warning in report.warnings)
+    assert statuses(report)["completeness"] == (ov.FAIL if missing else ov.PASS)
+    assert report.overall == (ov.FAIL if missing else ov.PASS)
+    if missing:
+        assert "Missing seq_regions (1): MT" in report.stages[-1].details
+
+
+def test_gtf_raw_tail_attributes_fail_before_gff3_lookup(tmp_path, monkeypatch):
+    path = tmp_path / "genes.gtf.bgz"
+    text = GTF.rsplit(' gene_version "1";', 1)[0] + "\n"
+    write_csi(path, text, write_bgzf(path, text))
+    with gzip.open(path.with_suffix(".gz"), "wt") as fh:
+        fh.write(text)
+    validator = ov.GenesetValidation(METADATA, SETTINGS)
+
+    def unexpected(*args):
+        pytest.fail("GFF3 lookup must not run after a truncated raw GTF tail")
+
+    monkeypatch.setattr(validator, "_gff3_or_skip", unexpected)
+    report = validator.validate_gtf(path, None)
+    assert statuses(report)["format"] == ov.PASS
+    assert statuses(report)["completeness"] == ov.FAIL
+    assert "last line missing required attributes" in report.stages[-1].reason
+    assert "gene_version" in report.stages[-1].reason
+    assert any("GFF3 cross-reference missing" in detail for detail in report.stages[-1].details)
+
+
+@pytest.mark.parametrize("name", ["genes.gff3", "genes.gff3.gz", "genes.gff3.bgz"])
+def test_gtf_discovers_gff3_sibling_variants(tmp_path, name):
+    path = tmp_path / "genes.gtf.bgz"
+    write_csi(path, GTF, write_bgzf(path, GTF))
+    with gzip.open(path.with_suffix(".gz"), "wt") as fh:
+        fh.write(GTF)
+    reference = tmp_path / name
+    if name.endswith((".gz", ".bgz")):
+        with gzip.open(reference, "wt") as fh:
+            fh.write(GFF3)
+    else:
+        reference.write_text(GFF3)
+    output = ov.local_output_files(SETTINGS, path)[0]
+    assert output.gff3_path == str(reference)
+    report = ov.GenesetValidation(METADATA, SETTINGS).validate_gtf(path, output.gff3_path)
+    assert report.overall == ov.PASS
+
+
+def test_gtf_prefers_same_stem_gff3(tmp_path):
+    path = tmp_path / "genes.gtf.bgz"
+    path.touch()
+    (tmp_path / "aaa.gff3.bgz").touch()
+    reference = tmp_path / "genes.gff3.gz"
+    reference.touch()
+    (tmp_path / "genes.gff3.gz.csi").touch()
+    assert ov.local_output_files(SETTINGS, path)[0].gff3_path == str(reference)
+
+
+def test_gtf_missing_gff3_fails_completeness(tmp_path):
+    path = tmp_path / "genes.gtf.bgz"
+    write_csi(path, GTF, write_bgzf(path, GTF))
+    with gzip.open(path.with_suffix(".gz"), "wt") as fh:
+        fh.write(GTF)
+    output = ov.local_output_files(SETTINGS, path)[0]
+    assert output.gff3_path is None
+    report = ov.GenesetValidation(METADATA, SETTINGS).validate_gtf(path, output.gff3_path)
+    assert statuses(report)["completeness"] == ov.FAIL
+    assert "GFF3 cross-reference missing" in report.stages[-1].reason
+
+
+def test_report_identifies_selected_gff3(tmp_path):
+    path = tmp_path / "genes.gtf.bgz"
+    path.touch()
+    reference = tmp_path / "genes.gff3.gz"
+    reference.touch()
+    output = ov.local_output_files(SETTINGS, path)[0]
+    record = ov.file_report_record(ov.FileReport(path.name, path), output, {})
+    assert record["gff3_reference"] == str(reference.resolve())
+    lines = [line for line, _ in ov.format_terminal_report({"files": [record]})]
+    assert f"GFF3:    {reference.resolve()}" in lines
+
+
+def test_gtf_does_not_fall_back_to_different_stem_gff3(tmp_path):
+    path = tmp_path / "genes.gtf.bgz"
+    path.touch()
+    for name in ("test_genes.gff3", "other.gff3.bgz", "different.gff3.gz"):
+        (tmp_path / name).touch()
+    assert ov.local_output_files(SETTINGS, path)[0].gff3_path is None
+
+
+@pytest.mark.parametrize("with_pragmas", [True, False])
+@pytest.mark.parametrize("missing", [True, False])
+def test_gff3_missing_seq_regions_fail_counts_warn(tmp_path, with_pragmas, missing):
+    lines = GFF3.splitlines(keepends=True)
+    if not with_pragmas:
+        lines = [line for line in lines if not line.startswith("##sequence-region")]
+        lines.append("MT\tens\tgene\t1\t10\t.\t+\t.\tID=gene:MT1\n")
+    if missing:
+        lines = [line for line in lines if not line.startswith(("2\t", "##sequence-region 2 "))]
+    path = make_gff3(tmp_path, "".join(lines))
+    metadata = ov.GenomeMetadata(sequences=METADATA.sequences, total_coding_exons=100)
+    settings = ov.output_settings({"output_validation": {"strict_metadata_counts": True}})
+    report = ov.GenesetValidation(metadata, settings).validate_gff3(path)
+    assert statuses(report)["completeness"] == (ov.FAIL if missing else ov.PASS)
+    assert any("CDS features" in warning and "mismatch" in warning for warning in report.warnings)
+    if missing:
+        assert "Missing seq_regions (1): 2" in report.stages[-1].details
+
+
+def test_gff3_missing_nonchromosomal_seq_region_fails(tmp_path):
+    text = GFF3.replace("##sequence-region MT 1 10\n", "")
+    path = make_gff3(tmp_path, text)
+    metadata = ov.GenomeMetadata(sequences=METADATA.sequences, total_coding_exons=100)
+    report = ov.GenesetValidation(metadata, SETTINGS).validate_gff3(path)
+    assert statuses(report)["completeness"] == ov.FAIL
+    assert "Missing seq_regions (1): MT" in report.stages[-1].details
+    assert any("CDS features" in warning and "mismatch" in warning for warning in report.warnings)
+
+
+@pytest.mark.parametrize("stage", ["bgzip", "index", "format", "completeness"])
+def test_select_one_validation_stage(tmp_path, stage):
+    path = _write_genome(tmp_path, "softmasked")
+    settings = {**SETTINGS, "validation_stage": stage}
+    if stage in ("format", "completeness"):
+        Path(f"{path}.fai").unlink()  # Neither stage requires an index-only check.
+    report = ov.FastaValidation(METADATA, settings).validate_genome_fasta(path, "softmasked")
+    selected = "compression" if stage == "bgzip" else stage
+    assert statuses(report)[selected] == ov.PASS
+    assert all(result.expected_skip and result.reason == "Not selected"
+               for result in report.stages if result.stage != selected)
+    assert report.overall == ov.PASS
+
+
+def test_completeness_only_still_checks_raw_gtf_tail(tmp_path):
+    path = tmp_path / "genes.gtf.bgz"
+    text = GTF.rsplit(' gene_version "1";', 1)[0] + "\n"
+    write_bgzf(path, text)
+    with gzip.open(path.with_suffix(".gz"), "wt") as fh:
+        fh.write(text)
+    validator = ov.GenesetValidation(METADATA, {**SETTINGS, "validation_stage": "completeness"})
+    report = validator.validate_gtf(path, None)
+    assert statuses(report)["completeness"] == ov.FAIL
+    assert "last line missing required attributes" in report.stages[-1].reason
