@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The output_validation summary: JSON file under --output-dir and the terminal block."""
+"""The ftp_file_validation summary: JSON file under --output-dir and the terminal block."""
 
 import fcntl
 import json
@@ -26,7 +26,7 @@ import pytest
 
 from .common import FAIL, PASS, SKIP
 
-OUTPUT_REPORT_NAME = "output_validation_report.json"
+OUTPUT_REPORT_NAME = "ftp_file_validation_report.json"
 
 
 def file_report_record(file_report, output_file, genome):
@@ -61,7 +61,7 @@ def summarise_records(records, run_info):
 
 
 class OutputReportWriter:
-    """Collect file records; with --output-dir, write them to <output_dir>/output_validation_report.json.
+    """Collect file records; with --output-dir, write them to <output_dir>/ftp_file_validation_report.json.
 
     The records are always printed in the terminal (TerminalSummary); the JSON file is optional.
     Every pytest process writes at session end. pytest-xdist workers share a run id
@@ -107,7 +107,7 @@ class OutputReportWriter:
 def _run_info(config):
     workerinput = getattr(config, "workerinput", None)
     run_id = workerinput["testrunuid"] if workerinput else uuid.uuid4().hex
-    return {"test": "output_validation", "run_id": run_id,
+    return {"test": "ftp_file_validation", "run_id": run_id,
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "input": config.getoption("target_file"), "genome_uuid": config.getoption("genome_uuid"),
             "file_type": config.getoption("file_type", None), "base_path": config.getoption("base_path", None)}
@@ -151,13 +151,13 @@ def format_terminal_report(document, json_path=None):
 class TerminalSummary:
     """Prints the results of the -f file as the last block before pytest's own summary line."""
 
-    name = "output_validation_terminal_summary"
+    name = "ftp_file_validation_terminal_summary"
 
     @pytest.hookimpl(trylast=True)
     def pytest_terminal_summary(self, terminalreporter, config):
         writer = config.stash.get(REPORT_KEY, None)
         if writer is None or not writer.records:
             return
-        terminalreporter.write_sep("=", "Output validation", bold=True)
+        terminalreporter.write_sep("=", "FTP file validation", bold=True)
         for text, markup in format_terminal_report(writer.document(), writer.written):
             terminalreporter.write_line(text, **markup)

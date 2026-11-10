@@ -103,7 +103,7 @@
           "use_alt_base_path": 1,
           "expected_files": ["softmasked.fa.bgz"]
         },
-        "output_validation": {
+        "ftp_file_validation": {
           "genome_fasta": ["unmasked.fa.bgz", "softmasked.fa.bgz", "hardmasked.fa.bgz"],
           "cdna_fasta": "cdna.fa.bgz",
           "peptide_fasta": "pep.fa.bgz",

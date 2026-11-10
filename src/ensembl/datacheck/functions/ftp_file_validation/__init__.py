@@ -16,8 +16,8 @@
 """
 FTPdump output validation library (FASTA and geneset).
 
-The pytest checks live in checks/output_validation/ (fasta.py, geneset.py, conftest.py) and are run
-together with --test=output_validation. See checks/output_validation/README.md for the full specification.
+The pytest checks live in checks/ftp_file_validation/ (fasta.py, geneset.py, conftest.py) and are run
+together with --test=ftp_file_validation. See checks/ftp_file_validation/README.md for the full specification.
 
 Modules:
     common       stage results, gzip/BGZF reading, genome metadata
@@ -38,7 +38,7 @@ Without -f, resolve the genome's public FTP path from metadata under FTP_ROOT
 (default /nfs/ftp/public/ensemblorganisms). With -f, infer the type from the
 filename unless --file-type explicitly selects the validator.
 
-    ensembl-datacheck --test=output_validation -f genes.gff3.bgz --database <metadata_url> \
+    ensembl-datacheck --test=ftp_file_validation -f genes.gff3.bgz --database <metadata_url> \
         --genome_uuid <uuid> --no-cache-results --tb=short
 
 --database and --genome_uuid enable the metadata checks. The runner maps -f to --target-file for

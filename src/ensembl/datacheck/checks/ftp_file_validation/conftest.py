@@ -19,13 +19,13 @@ import logging
 
 import pytest
 
-from ensembl.datacheck.functions.output_validation.dispatch import (_resource_config_from_pytest,
+from ensembl.datacheck.functions.ftp_file_validation.dispatch import (_resource_config_from_pytest,
                                                                     resolve_output_input)
-from ensembl.datacheck.functions.output_validation.file_types import output_settings
-from ensembl.datacheck.functions.output_validation.report import (REPORT_KEY, OutputReportWriter, TerminalSummary,
+from ensembl.datacheck.functions.ftp_file_validation.file_types import output_settings
+from ensembl.datacheck.functions.ftp_file_validation.report import (REPORT_KEY, OutputReportWriter, TerminalSummary,
                                                                   _run_info)
 
-logger = logging.getLogger("output_validation")
+logger = logging.getLogger("ftp_file_validation")
 
 
 def pytest_generate_tests(metafunc):
@@ -42,7 +42,7 @@ def pytest_generate_tests(metafunc):
         # default --tb=no hides the traceback, so print the full message before re-raising.
         reporter = metafunc.config.pluginmanager.get_plugin("terminalreporter")
         if reporter is not None:
-            reporter.write_line(f"output_validation usage error: {error}", red=True, bold=True)
+            reporter.write_line(f"ftp_file_validation usage error: {error}", red=True, bold=True)
         raise
 
 
@@ -72,7 +72,7 @@ def output_report(request):
     request.config.stash[REPORT_KEY] = writer
     yield writer
     if writer.output_dir is not None:
-        logger.info("output_validation report written to %s", writer.write())
+        logger.info("ftp_file_validation report written to %s", writer.write())
 
 
 @pytest.fixture(scope="session")

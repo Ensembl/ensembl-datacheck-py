@@ -16,16 +16,16 @@ import os
 import sys
 import pytest
 
-# Short flag only for --test=output_validation; elsewhere -f keeps its pytest-xdist meaning.
+# Short flag only for --test=ftp_file_validation; elsewhere -f keeps its pytest-xdist meaning.
 OUTPUT_VALIDATION_SHORT_FLAGS = {"-f": "--target-file"}
-# Folder (-d) and release (-rn ... -release-check) runs were removed; output_validation checks one file.
+# Folder (-d) and release (-rn ... -release-check) runs were removed; ftp_file_validation checks one file.
 # Without this, -rn / -release-check would be read silently as pytest's -r (report characters).
 OUTPUT_VALIDATION_REMOVED_FLAGS = ("-d", "--target-dir", "-rn", "--release_name", "-release-check", "--release-check")
 
 # Checks that were removed, mapped to the message pointing at their replacement.
 REMOVED_TESTS = {
-    "fasta": "--test=fasta has been removed; FASTA validation is now in output_validation. "
-             "Use: ensembl-datacheck --test=output_validation -f FILE",
+    "fasta": "--test=fasta has been removed; FASTA validation is now in ftp_file_validation. "
+             "Use: ensembl-datacheck --test=ftp_file_validation -f FILE",
 }
 
 
@@ -46,22 +46,22 @@ def _selected_test(args):
     return None
 
 
-def _is_output_validation(args):
-    """True for --test=output_validation and its parts (output_validation/fasta, output_validation/geneset)."""
+def _is_ftp_file_validation(args):
+    """True for --test=ftp_file_validation and its parts (ftp_file_validation/fasta, ftp_file_validation/geneset)."""
     test = _selected_test(args) or ""
-    return test.rstrip("/") == "output_validation" or test.startswith("output_validation/")
+    return test.rstrip("/") == "ftp_file_validation" or test.startswith("ftp_file_validation/")
 
 
 def translate_short_flags(args):
-    """Map output_validation's -f FILE to --target-file and reject the removed folder/release flags."""
-    if not _is_output_validation(args):
+    """Map ftp_file_validation's -f FILE to --target-file and reject the removed folder/release flags."""
+    if not _is_ftp_file_validation(args):
         return args
     translated = []
     iterator = iter(args)
     for arg in iterator:
         flag, sep, value = arg.partition("=")
         if flag in OUTPUT_VALIDATION_REMOVED_FLAGS:
-            raise SystemExit(f"{flag} is no longer supported: output_validation checks one file, use -f FILE")
+            raise SystemExit(f"{flag} is no longer supported: ftp_file_validation checks one file, use -f FILE")
         if flag in OUTPUT_VALIDATION_SHORT_FLAGS:
             if not sep:
                 value = next(iterator, None)
@@ -93,9 +93,9 @@ def mysql_url_for_pymysql(url):
     return "mysql+pymysql://" + url[len("mysql://"):] if url.startswith("mysql://") else url
 
 
-def apply_output_validation_defaults(args):
-    """For output_validation: accept plain mysql:// URLs and send the JSON report to --output-dir."""
-    if not _is_output_validation(args):
+def apply_ftp_file_validation_defaults(args):
+    """For ftp_file_validation: accept plain mysql:// URLs and send the JSON report to --output-dir."""
+    if not _is_ftp_file_validation(args):
         return args
     updated = []
     iterator = iter(args)
@@ -135,7 +135,7 @@ def main():
     """
     # Remove the script name from sys.argv
     check_removed_test(sys.argv[1:])
-    args = apply_output_validation_defaults(translate_short_flags(sys.argv[1:]))
+    args = apply_ftp_file_validation_defaults(translate_short_flags(sys.argv[1:]))
 
     # Custom plugin name
     plugin_name = 'ensembl.datacheck.plugin'

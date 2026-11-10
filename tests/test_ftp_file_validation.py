@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 
-from ensembl.datacheck.functions import output_validation as ov
-from ensembl.datacheck.functions.output_validation import dispatch as ov_dispatch
-from ensembl.datacheck.functions.output_validation import geneset as ov_geneset
+from ensembl.datacheck.functions import ftp_file_validation as ov
+from ensembl.datacheck.functions.ftp_file_validation import dispatch as ov_dispatch
+from ensembl.datacheck.functions.ftp_file_validation import geneset as ov_geneset
 
 BLOCK = 64  # tiny blocks so random access crosses BGZF block boundaries
 
@@ -325,7 +325,7 @@ def test_report_failure_message_matches_hook_format(tmp_path):
     with pytest.raises(AssertionError) as excinfo:
         ov.OutputValidation.report(report)
     lines = str(excinfo.value).splitlines()
-    assert lines[0] == f"Output validation failures in x.fa.bgz: 1. Release path: {tmp_path / 'x.fa.bgz'}"
+    assert lines[0] == f"FTP file validation failures in x.fa.bgz: 1. Release path: {tmp_path / 'x.fa.bgz'}"
     assert lines[1] == "Full list:"
     assert lines[2] == "completeness: Missing seq_regions (2): a, b"
 
@@ -382,23 +382,23 @@ def test_local_validation_without_metadata_skips_completeness(tmp_path):
     assert ov.NO_METADATA in report.stages[-1].reason
 
 
-def test_runner_translates_short_flags_only_for_output_validation():
+def test_runner_translates_short_flags_only_for_ftp_file_validation():
     from ensembl.datacheck.runner import translate_short_flags
-    assert translate_short_flags(["--test=output_validation", "-f", "a.fa"]) == [
-        "--test=output_validation", "--target-file", "a.fa"]
-    assert translate_short_flags(["--test=output_validation", "-f=a.fa"]) == [
-        "--test=output_validation", "--target-file", "a.fa"]
+    assert translate_short_flags(["--test=ftp_file_validation", "-f", "a.fa"]) == [
+        "--test=ftp_file_validation", "--target-file", "a.fa"]
+    assert translate_short_flags(["--test=ftp_file_validation", "-f=a.fa"]) == [
+        "--test=ftp_file_validation", "--target-file", "a.fa"]
     assert translate_short_flags(["--test", "fasta", "-f"]) == ["--test", "fasta", "-f"]
 
 
-@pytest.mark.parametrize("test", ["output_validation/fasta", "output_validation/geneset", "output_validation/"])
-def test_runner_translates_short_flags_for_output_validation_parts(test):
-    from ensembl.datacheck.runner import apply_output_validation_defaults, translate_short_flags
+@pytest.mark.parametrize("test", ["ftp_file_validation/fasta", "ftp_file_validation/geneset", "ftp_file_validation/"])
+def test_runner_translates_short_flags_for_ftp_file_validation_parts(test):
+    from ensembl.datacheck.runner import apply_ftp_file_validation_defaults, translate_short_flags
     assert translate_short_flags([f"--test={test}", "-f", "a.fa"]) == [f"--test={test}", "--target-file", "a.fa"]
-    assert apply_output_validation_defaults([f"--test={test}", "--database", "mysql://u@h:1/db"]) == [
+    assert apply_ftp_file_validation_defaults([f"--test={test}", "--database", "mysql://u@h:1/db"]) == [
         f"--test={test}", "--database", "mysql+pymysql://u@h:1/db"]
-    assert translate_short_flags(["--test=output_validation_other", "-f", "a"]) == [
-        "--test=output_validation_other", "-f", "a"]
+    assert translate_short_flags(["--test=ftp_file_validation_other", "-f", "a"]) == [
+        "--test=ftp_file_validation_other", "-f", "a"]
 
 
 RAW_GTF_LAST = '2\tens\tgene\t5\t30\t.\t-\t.\tgene_id "G2"; gene_version "1"; gene_biotype "lncRNA"; gene_source "ensembl";\n'
@@ -562,22 +562,22 @@ def test_required_target_file():
                                    ["-rn=115"], ["--release_name", "115"], ["--release-check"]])
 def test_runner_rejects_folder_and_release_flags(flags):
     from ensembl.datacheck.runner import translate_short_flags
-    with pytest.raises(SystemExit, match="no longer supported: output_validation checks one file"):
-        translate_short_flags(["--test=output_validation"] + flags)
+    with pytest.raises(SystemExit, match="no longer supported: ftp_file_validation checks one file"):
+        translate_short_flags(["--test=ftp_file_validation"] + flags)
     assert translate_short_flags(["--test=other"] + flags) == ["--test=other"] + flags
 
 
-def test_removed_fasta_check_points_to_output_validation():
+def test_removed_fasta_check_points_to_ftp_file_validation():
     from pathlib import Path
     import ensembl.datacheck.runner as runner
     from ensembl.datacheck.runner import check_removed_test
     checks = Path(runner.__file__).parent / "checks"
     assert not (checks / "fasta.py").exists()
-    assert (checks / "output_validation" / "fasta.py").is_file()  # only inside output_validation/
+    assert (checks / "ftp_file_validation" / "fasta.py").is_file()  # only inside ftp_file_validation/
     for args in (["--test=fasta"], ["--test", "fasta", "--file=x.fa"]):
-        with pytest.raises(SystemExit, match="output_validation"):
+        with pytest.raises(SystemExit, match="ftp_file_validation"):
             check_removed_test(args)
-    check_removed_test(["--test=output_validation", "-f", "x.fa"])  # no exit
+    check_removed_test(["--test=ftp_file_validation", "-f", "x.fa"])  # no exit
 
 
 def test_mysql_url_uses_pymysql():
@@ -588,21 +588,21 @@ def test_mysql_url_uses_pymysql():
     assert mysql_url_for_pymysql("sqlite:///x.db") == "sqlite:///x.db"
 
 
-def test_runner_output_validation_defaults(tmp_path):
-    from ensembl.datacheck.runner import apply_output_validation_defaults
+def test_runner_ftp_file_validation_defaults(tmp_path):
+    from ensembl.datacheck.runner import apply_ftp_file_validation_defaults
     out = tmp_path / "out"
-    args = apply_output_validation_defaults(
-        ["--test=output_validation", "--database", "mysql://ensro@h:1/ensembl_genome_metadata",
+    args = apply_ftp_file_validation_defaults(
+        ["--test=ftp_file_validation", "--database", "mysql://ensro@h:1/ensembl_genome_metadata",
          "--output-dir", str(out)])
-    assert args[:3] == ["--test=output_validation", "--database", "mysql+pymysql://ensro@h:1/ensembl_genome_metadata"]
+    assert args[:3] == ["--test=ftp_file_validation", "--database", "mysql+pymysql://ensro@h:1/ensembl_genome_metadata"]
     assert args[-2:] == ["--json-report", f"--json-report-file={out / 'report.json'}"]
     assert out.is_dir()
-    args = apply_output_validation_defaults(
-        ["--test=output_validation", "--database=mysql://h/db", "--output-dir", str(out), "--json-report-file=x.json"])
-    assert args == ["--test=output_validation", "--database", "mysql+pymysql://h/db", "--output-dir", str(out),
+    args = apply_ftp_file_validation_defaults(
+        ["--test=ftp_file_validation", "--database=mysql://h/db", "--output-dir", str(out), "--json-report-file=x.json"])
+    assert args == ["--test=ftp_file_validation", "--database", "mysql+pymysql://h/db", "--output-dir", str(out),
                     "--json-report-file=x.json"]
     other = ["--test=other", "--database", "mysql://h/db"]
-    assert apply_output_validation_defaults(list(other)) == other
+    assert apply_ftp_file_validation_defaults(list(other)) == other
 
 
 def _file_report(name, failed=False):
@@ -619,7 +619,7 @@ def _file_report(name, failed=False):
 def test_output_report_record_and_merge(tmp_path):
     output_file = ov.OutputFile("cdna", "fasta", "cdna.fa.bgz", path="/dumps/cdna.fa.bgz")
     genome = {"genome_uuid": "g1"}
-    info = {"test": "output_validation", "run_id": "run1"}
+    info = {"test": "ftp_file_validation", "run_id": "run1"}
 
     first = ov.OutputReportWriter(tmp_path, info)
     first.add(_file_report("cdna.fa.bgz"), output_file, genome)
@@ -643,9 +643,9 @@ def test_output_report_record_and_merge(tmp_path):
 
 @pytest.mark.parametrize("args", [["--output-dir"], ["--output-dir", "--tb=short"], ["--output-dir="]])
 def test_runner_rejects_missing_output_dir(args):
-    from ensembl.datacheck.runner import apply_output_validation_defaults
+    from ensembl.datacheck.runner import apply_ftp_file_validation_defaults
     with pytest.raises(SystemExit, match="--output-dir requires a folder"):
-        apply_output_validation_defaults(["--test=output_validation", "-f", "x.fa"] + args)
+        apply_ftp_file_validation_defaults(["--test=ftp_file_validation", "-f", "x.fa"] + args)
 
 
 def test_gff3_completeness_skips_without_metadata(tmp_path):
@@ -676,7 +676,7 @@ def test_total_genome_length_disagrees_with_assembly_sequence(tmp_path):
     assert "FASTA is 16 bp shorter" in warning
     assert "all 3 assembly_sequence seq_regions are present and sum to 200" in warning
 
-    strict = ov.output_settings({"output_validation": {"strict_metadata_counts": True}})
+    strict = ov.output_settings({"ftp_file_validation": {"strict_metadata_counts": True}})
     _, completeness = _genome_fasta_report(tmp_path, metadata, strict)
     assert completeness.status == ov.PASS
 
@@ -693,7 +693,7 @@ def test_terminal_report_lists_stages_details_and_json_location(tmp_path):
     report.add(ov.StageResult("compression", ov.PASS, "bgzf"))
     report.add(ov.StageResult("format", ov.FAIL, "Invalid FASTA (2)", ["Line 2: bad", "Line 9: bad"]))
     report.warnings.append("long lines")
-    writer = ov.OutputReportWriter(None, {"test": "output_validation", "run_id": "r"})
+    writer = ov.OutputReportWriter(None, {"test": "ftp_file_validation", "run_id": "r"})
     writer.add(report, ov.OutputFile("peptide", "fasta", "pep.fa.bgz", path="/dumps/pep.fa.bgz"), {"genome_uuid": None})
 
     lines = [text for text, _ in ov.format_terminal_report(writer.document())]
@@ -703,9 +703,9 @@ def test_terminal_report_lists_stages_details_and_json_location(tmp_path):
     assert sum("- Line" in line for line in lines) == 2
     assert "  - long lines" in lines and "Result:  FAIL" in lines
     assert lines[-1] == "JSON:    not written (add --output-dir DIR to save it)"
-    markup = dict(ov.format_terminal_report(writer.document(), "/out/output_validation_report.json"))
+    markup = dict(ov.format_terminal_report(writer.document(), "/out/ftp_file_validation_report.json"))
     assert markup["  format       FAIL  Invalid FASTA (2)"] == {"red": True}
-    assert "JSON:    /out/output_validation_report.json" in markup
+    assert "JSON:    /out/ftp_file_validation_report.json" in markup
 
 
 def _write_genome(folder, mask, text=None):
@@ -1046,7 +1046,7 @@ def test_genome_completeness_missing_regions_fail_lengths_warn(tmp_path, mask, m
     sequences = [(name, accession, length + 1, chromosomal)
                  for name, accession, length, chromosomal in METADATA.sequences]
     metadata = ov.GenomeMetadata(sequences=sequences, total_genome_length=203)
-    settings = ov.output_settings({"output_validation": {"strict_metadata_counts": True}})
+    settings = ov.output_settings({"ftp_file_validation": {"strict_metadata_counts": True}})
     text = genome_fasta(mask)
     if missing:
         text = text.split(">MT")[0]
@@ -1167,7 +1167,7 @@ def test_gff3_missing_seq_regions_fail_counts_warn(tmp_path, with_pragmas, missi
         lines = [line for line in lines if not line.startswith(("2\t", "##sequence-region 2 "))]
     path = make_gff3(tmp_path, "".join(lines))
     metadata = ov.GenomeMetadata(sequences=METADATA.sequences, total_coding_exons=100)
-    settings = ov.output_settings({"output_validation": {"strict_metadata_counts": True}})
+    settings = ov.output_settings({"ftp_file_validation": {"strict_metadata_counts": True}})
     report = ov.GenesetValidation(metadata, settings).validate_gff3(path)
     assert statuses(report)["completeness"] == (ov.FAIL if missing else ov.PASS)
     assert any("CDS features" in warning and "mismatch" in warning for warning in report.warnings)

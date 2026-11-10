@@ -59,7 +59,7 @@ class OutputFile:
 
 def output_settings(resource_config):
     settings = dict(DEFAULT_SETTINGS)
-    settings.update(resource_config.get("output_validation") or {})
+    settings.update(resource_config.get("ftp_file_validation") or {})
     for flag in ("chromosome_tsv_required", "require_gzi", "strict_metadata_counts", "check_genome_headers",
                  "compare_genome_masks"):
         settings[flag] = str(settings[flag]).lower() in ("1", "true", "yes")

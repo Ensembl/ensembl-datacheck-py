@@ -31,7 +31,7 @@ from .file_types import GROUP_BY_KEY, OutputFile, classify_file, normalise_file_
 from .geneset import GenesetValidation
 
 # Same logger name as when this was one module, so log lines read as before.
-logger = logging.getLogger("output_validation")
+logger = logging.getLogger("ftp_file_validation")
 
 
 def _resource_config_from_pytest(config):
@@ -43,17 +43,17 @@ def _resource_config_from_pytest(config):
     )
     stage = config.getoption("validation_stage", None)
     if stage:
-        resource.setdefault("output_validation", {})["validation_stage"] = stage
+        resource.setdefault("ftp_file_validation", {})["validation_stage"] = stage
     return resource
 
 
 def required_target_file(config):
     """Require a file or validator type; release-wide runs remain unsupported."""
     if config.getoption("release_name", None):
-        raise pytest.UsageError("output_validation no longer supports --release_name; it checks one file: -f FILE")
+        raise pytest.UsageError("ftp_file_validation no longer supports --release_name; it checks one file: -f FILE")
     target_file = config.getoption("target_file")
     if not target_file and not config.getoption("file_type", None):
-        raise pytest.UsageError("output_validation needs one input: -f FILE or --file-type TYPE")
+        raise pytest.UsageError("ftp_file_validation needs one input: -f FILE or --file-type TYPE")
     return target_file
 
 
@@ -176,14 +176,14 @@ class OutputValidation:
         overall = file_report.overall
         (logger.error if overall == FAIL else logger.info)("[%s] overall: %s", label, overall)
         for message in file_report.warnings:
-            warnings.warn(EnsemblDatacheckWarning(f"[{label}] {message}", "output_validation", "report"))
+            warnings.warn(EnsemblDatacheckWarning(f"[{label}] {message}", "ftp_file_validation", "report"))
 
         failures = file_report.failures
         if failures:
             items = [f"{stage.stage}: {detail}" for stage in failures for detail in (stage.details or [stage.reason])]
             items += [f"{stage.stage}: SKIP - {stage.reason}" for stage in file_report.unexpected_skips]
             raise AssertionError("\n".join(
-                [f"Output validation failures in {label}: {len(failures)}. Release path: {file_report.path}",
+                [f"FTP file validation failures in {label}: {len(failures)}. Release path: {file_report.path}",
                  "Full list:"] + [item.replace('"', "") for item in items]
             ))
         if file_report.unexpected_skips:

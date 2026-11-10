@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""FASTA output checks; run with --test=output_validation (both modules) or --test=output_validation/fasta."""
+"""FASTA output checks; run with --test=ftp_file_validation (both modules) or --test=ftp_file_validation/fasta."""
 
-from ensembl.datacheck.functions.output_validation.dispatch import validate_and_report
+from ensembl.datacheck.functions.ftp_file_validation.dispatch import validate_and_report
 
 
 def check_fasta_output(genomes, output_file, db_session, output_resource_config, output_report):
