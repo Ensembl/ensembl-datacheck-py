@@ -7,29 +7,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Run custom checks
         run: |
-          pip install -r requirements.txt || true
+          python -m pip install -r requirements.txt || true
           python .github/scripts/verify_headers_and_docs.py
 
-  test_utils:
+  test_suite:
+    name: Test suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Run Utils checks
+      - name: Install test dependencies
         run: |
-          pip install .
-          pip install .[automation]
-          pytest --rootdir=./tests ./tests/
+          python -m pip install '.[automation]'
+
+      - name: Report resolved environment
+        run: |
+          python -m pip check
+          python -m pip freeze
+          python -c 'from ensembl.production.metadata.api.factories import utils; print("metadata-api utilities:", utils.__file__); print("format_accession_path:", utils.format_accession_path("GCA_000005845.2"))'
+
+      - name: Run test suite
+        run: python -m pytest --rootdir=./tests ./tests/
