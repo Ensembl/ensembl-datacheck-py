@@ -42,13 +42,19 @@ rows are loaded once per run.
 | `check_compara_reference_collection_files_are_valid` | A row is not `<production_name>,<genome_uuid>`, or a genome UUID appears twice in one file |
 | `check_compara_reference_collections_have_genome_group` | A collection has no `compara_reference` group with its name, or the group's label differs |
 | `check_compara_reference_genomes_exist` | A collection's genome UUID is not in the `genome` table |
+| `check_compara_reference_genomes_not_suppressed` | A collection's genome is suppressed (`genome.suppressed = 1`); the failure shows `suppression_details` |
+| `check_compara_reference_genomes_released` | A collection's genome is not in any `Released` or `Archived` release (only released genomes may be references) |
+| `check_compara_reference_production_names` | **Warning only:** a collection's production name differs from `genome.production_name` for the same UUID. The SQL patches use UUIDs, so this does not fail the run |
 | `check_compara_reference_missing_group_members` | A collection's genome UUID is not a current member of its group (for example, the patch adding it was not applied) |
 | `check_compara_reference_extra_group_members` | A group has a current member that is not in its collection (for example, the patch dropping it was not applied) |
 | `check_compara_reference_duplicate_group_members` | A genome is a current member of the same group more than once (`genome_group_member` has no unique key) |
 | `check_compara_reference_groups_have_collection` | A `compara_reference` group has current members but no collection file (directory only) |
 
 The missing and extra member checks skip collections that have no group, which are
-already reported by the genome group check.
+already reported by the genome group check. The suppressed, released and production name
+checks skip genome UUIDs that are not in the `genome` table, which are already reported by
+`check_compara_reference_genomes_exist`. With a single CSV file, the duplicate member check
+only looks at that collection's group.
 
 ## Configuration
 

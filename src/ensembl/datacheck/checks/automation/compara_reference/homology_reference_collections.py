@@ -31,6 +31,9 @@ Checks performed:
     - Collection files are well formed: two columns per row and no duplicate genome UUIDs.
     - Every collection has a compara_reference genome group with the same name and label.
     - Every genome UUID in a collection exists in the genome table.
+    - No genome in a collection is suppressed.
+    - Every genome in a collection has been released (is in a Released or Archived release).
+    - Production names in a collection match genome.production_name (warning only).
     - Every genome UUID in a collection is a current member of its genome group.
     - No genome group has current members that are not in its collection.
     - No genome is a current member of the same genome group more than once.
@@ -39,6 +42,7 @@ Checks performed:
 """
 
 import csv
+import warnings
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -46,14 +50,19 @@ from pathlib import Path, PurePosixPath
 import pytest
 from sqlalchemy import select
 
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from ensembl.production.metadata.api.models import (
     EnsemblRelease,
     Genome,
     GenomeGroup,
     GenomeGroupMember,
+    GenomeRelease,
+    ReleaseStatus,
 )
 
 GROUP_TYPE = "compara_reference"
+# A genome has been released when it belongs to a release with one of these statuses
+RELEASED_STATUSES = (ReleaseStatus.RELEASED, ReleaseStatus.ARCHIVED)
 
 
 def group_key(group_name):
@@ -81,6 +90,15 @@ class Collection:
         return group_key(self.group_name)
 
 
+@dataclass(frozen=True)
+class GenomeInfo:
+    """The genome table fields the checks need for one genome UUID."""
+
+    production_name: str
+    suppressed: bool
+    suppression_details: str = None
+
+
 @dataclass
 class ComparaReferenceContext:
     """Collections and the metadata database state they are compared with.
@@ -95,7 +113,8 @@ class ComparaReferenceContext:
     groups: dict  # group key -> genome_group.label
     members: dict  # group key -> {genome_uuid: production_name}
     member_counts: Counter  # (group key, genome_uuid) -> number of current rows
-    existing_genome_uuids: set
+    genomes: dict  # genome_uuid -> GenomeInfo, for the collection genome UUIDs found in the genome table
+    released_genome_uuids: set  # collection genome UUIDs that belong to a Released or Archived release
 
 
 def parse_collection_file_name(file_name):
@@ -185,12 +204,33 @@ def fetch_current_group_members(db_session):
     return [tuple(row) for row in db_session.execute(statement).all()]
 
 
-def fetch_existing_genome_uuids(db_session, genome_uuids):
-    """Return the subset of genome_uuids present in the genome table."""
+def fetch_genomes(db_session, genome_uuids):
+    """Return {genome_uuid: GenomeInfo} for the genome_uuids present in the genome table."""
+    if not genome_uuids:
+        return {}
+    rows = db_session.execute(
+        select(Genome.genome_uuid, Genome.production_name, Genome.suppressed, Genome.suppression_details)
+        .where(Genome.genome_uuid.in_(sorted(genome_uuids)))
+    ).all()
+    return {
+        genome_uuid: GenomeInfo(production_name, bool(suppressed), suppression_details)
+        for genome_uuid, production_name, suppressed, suppression_details in rows
+    }
+
+
+def fetch_released_genome_uuids(db_session, genome_uuids):
+    """Return the genome_uuids that belong to at least one Released or Archived release."""
     if not genome_uuids:
         return set()
     rows = db_session.execute(
-        select(Genome.genome_uuid).where(Genome.genome_uuid.in_(sorted(genome_uuids)))
+        select(Genome.genome_uuid)
+        .join(GenomeRelease, GenomeRelease.genome_id == Genome.genome_id)
+        .join(EnsemblRelease, EnsemblRelease.release_id == GenomeRelease.release_id)
+        .where(
+            Genome.genome_uuid.in_(sorted(genome_uuids)),
+            EnsemblRelease.status.in_(RELEASED_STATUSES),
+        )
+        .distinct()
     ).scalars()
     return set(rows)
 
@@ -214,7 +254,8 @@ def build_context(source, collections, db_session, all_collections=True):
         groups={group_key(name): label for name, label in db_groups.items()},
         members=members,
         member_counts=Counter((group_key(group_name), uuid) for group_name, uuid, _ in member_rows),
-        existing_genome_uuids=fetch_existing_genome_uuids(db_session, collection_uuids),
+        genomes=fetch_genomes(db_session, collection_uuids),
+        released_genome_uuids=fetch_released_genome_uuids(db_session, collection_uuids),
     )
 
 
@@ -288,13 +329,89 @@ def check_compara_reference_genomes_exist(compara_reference_context):
         f"{collection.file_name}: {genome_uuid} ({production_name})"
         for collection in compara_reference_context.collections
         for genome_uuid, production_name in collection.genomes.items()
-        if genome_uuid not in compara_reference_context.existing_genome_uuids
+        if genome_uuid not in compara_reference_context.genomes
     ]
     _assert_no_discrepancies(
         label="Genome UUIDs not found in the metadata database",
         source=compara_reference_context.source,
         items=items,
     )
+
+
+def _collection_genomes_in_db(context):
+    """Yield (collection, genome_uuid, csv_production_name, GenomeInfo) for collection genomes in the DB.
+
+    Genome UUIDs missing from the genome table are reported by check_compara_reference_genomes_exist.
+    """
+    for collection in context.collections:
+        for genome_uuid, production_name in collection.genomes.items():
+            genome = context.genomes.get(genome_uuid)
+            if genome is not None:
+                yield collection, genome_uuid, production_name, genome
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("compara_reference")
+def check_compara_reference_genomes_not_suppressed(compara_reference_context):
+    """Check no genome in a collection is suppressed (genome.suppressed = 1)."""
+    items = [
+        f"{collection.file_name}: {genome_uuid} ({genome.production_name})"
+        + (f": {genome.suppression_details}" if genome.suppression_details else "")
+        for collection, genome_uuid, _, genome in _collection_genomes_in_db(compara_reference_context)
+        if genome.suppressed
+    ]
+    _assert_no_discrepancies(
+        label="Suppressed genomes in collections",
+        source=compara_reference_context.source,
+        items=items,
+    )
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("compara_reference")
+def check_compara_reference_genomes_released(compara_reference_context):
+    """Check every genome in a collection belongs to a Released or Archived release.
+
+    Only released genomes may be selected as references.
+    """
+    items = [
+        f"{collection.file_name}: {genome_uuid} ({genome.production_name})"
+        for collection, genome_uuid, _, genome in _collection_genomes_in_db(compara_reference_context)
+        if genome_uuid not in compara_reference_context.released_genome_uuids
+    ]
+    _assert_no_discrepancies(
+        label="Collection genomes that have not been released",
+        source=compara_reference_context.source,
+        items=items,
+    )
+
+
+@pytest.mark.automation_resource("all")
+@pytest.mark.automation_resource("compara_reference")
+def check_compara_reference_production_names(compara_reference_context):
+    """Warn when a collection's production name differs from genome.production_name.
+
+    The SQL patches only use genome UUIDs, so an outdated production name is a warning, not a failure.
+    """
+    items = [
+        f"{collection.file_name}: {genome_uuid} CSV '{production_name}', metadata DB '{genome.production_name}'"
+        for collection, genome_uuid, production_name, genome in _collection_genomes_in_db(compara_reference_context)
+        if production_name != genome.production_name
+    ]
+    if items:
+        warnings.warn(
+            EnsemblDatacheckWarning(
+                "\n".join(
+                    [
+                        f"Collection production names that differ from the metadata DB: {len(items)}. "
+                        f"Collections: {compara_reference_context.source}",
+                        *items,
+                    ]
+                ),
+                "compara_reference/homology_reference_collections",
+                "check_compara_reference_production_names",
+            )
+        )
 
 
 @pytest.mark.automation_resource("all")
@@ -342,11 +459,17 @@ def check_compara_reference_extra_group_members(compara_reference_context):
 @pytest.mark.automation_resource("all")
 @pytest.mark.automation_resource("compara_reference")
 def check_compara_reference_duplicate_group_members(compara_reference_context):
-    """Check no genome is a current member of the same genome group more than once."""
+    """Check no genome is a current member of the same genome group more than once.
+
+    When compara_reference.path is a single file, only that collection's genome group is checked.
+    """
+    checked_groups = None
+    if not compara_reference_context.all_collections:
+        checked_groups = {collection.group_key for collection in compara_reference_context.collections}
     items = [
         f"genome group '{compara_reference_context.group_names[key]}': {genome_uuid} has {count} current rows"
         for (key, genome_uuid), count in sorted(compara_reference_context.member_counts.items())
-        if count > 1
+        if count > 1 and (checked_groups is None or key in checked_groups)
     ]
     _assert_no_discrepancies(
         label="Duplicate current genome group members",

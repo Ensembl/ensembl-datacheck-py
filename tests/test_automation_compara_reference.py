@@ -17,12 +17,14 @@
 
 import shutil
 import sqlite3
+import warnings
 from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from ensembl.datacheck.checks.automation import conftest as automation_conftest
 from ensembl.datacheck.checks.automation.compara_reference import (
     homology_reference_collections as hrc,
@@ -35,6 +37,8 @@ ECOLI = ("escherichia_coli_str_k_12_substr_mg1655", "a73351f7-93e7-11ec-a39d-005
 PLASMODIUM = ("plasmodium_falciparum", "a73356e1-93e7-11ec-a39d-005056b38ce3", 12)
 YEAST = ("saccharomyces_cerevisiae", "a733574a-93e7-11ec-a39d-005056b38ce3", 201)
 WORM = ("caenorhabditis_elegans", "a733550b-93e7-11ec-a39d-005056b38ce3", 203)
+# Only in releases that are not Released or Archived
+UNRELEASED = ("homo_sapiens_gca018469875v1", "75b7ac15-6373-4ad5-9fb7-23813a5355a4", 6)
 PARTIAL_RELEASE_ID = 1
 INTEGRATED_RELEASE_ID = 7
 UNKNOWN_UUID = "00000000-0000-0000-0000-000000000000"
@@ -196,6 +200,9 @@ def test_build_context_reads_current_partial_members(context):
     }
     assert context.member_counts[("protists", PLASMODIUM[1])] == 2
     assert context.group_names["protists"] == "Protists"
+    assert UNKNOWN_UUID not in context.genomes
+    assert context.genomes[ECOLI[1]] == hrc.GenomeInfo(ECOLI[0], False, None)
+    assert context.released_genome_uuids == {ECOLI[1], PLASMODIUM[1], YEAST[1], WORM[1]}
 
 
 def test_protists_collection_matches_capitalised_group_name(context):
@@ -205,7 +212,6 @@ def test_protists_collection_matches_capitalised_group_name(context):
 
     assert not any("Protists" in line for line in lines)
     assert [line for line in lines[2:] if "protists" in line.casefold()] == []
-    assert UNKNOWN_UUID not in context.existing_genome_uuids
 
 
 def test_check_collection_files_are_valid_passes(context):
@@ -278,6 +284,19 @@ def test_check_groups_have_collection_skipped_for_single_file(collections_dir, d
         hrc.check_compara_reference_groups_have_collection(context)
 
 
+def test_duplicate_members_single_file_only_checks_its_own_group(collections_dir, db_session):
+    """Protists has a duplicate member, which must not fail a run on 2_bacteria.csv alone."""
+    bacteria, _ = hrc.load_collections(str(collections_dir / "2_bacteria.csv"))
+    hrc.check_compara_reference_duplicate_group_members(
+        hrc.build_context("2_bacteria.csv", bacteria, db_session, all_collections=False)
+    )
+
+    protists, _ = hrc.load_collections(str(collections_dir / "protists.csv"))
+    context = hrc.build_context("protists.csv", protists, db_session, all_collections=False)
+    lines = _failure_lines(hrc.check_compara_reference_duplicate_group_members, context)
+    assert lines[2:] == [f"genome group 'Protists': {PLASMODIUM[1]} has 2 current rows"]
+
+
 def test_single_file_only_compares_its_own_group(collections_dir, db_session):
     collections, all_collections = hrc.load_collections(str(collections_dir / "2_bacteria.csv"))
     context = hrc.build_context("2_bacteria.csv", collections, db_session, all_collections=all_collections)
@@ -299,9 +318,62 @@ def test_checks_pass_when_collections_match(tmp_path, db_session):
     hrc.check_compara_reference_collection_files_are_valid(context)
     hrc.check_compara_reference_collections_have_genome_group(context)
     hrc.check_compara_reference_genomes_exist(context)
+    hrc.check_compara_reference_genomes_not_suppressed(context)
+    hrc.check_compara_reference_genomes_released(context)
     hrc.check_compara_reference_missing_group_members(context)
     hrc.check_compara_reference_extra_group_members(context)
     hrc.check_compara_reference_groups_have_collection(context)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        hrc.check_compara_reference_production_names(context)
+
+
+def _context_for(tmp_path, db_session, csv_content, file_name="2_bacteria.csv"):
+    collections_dir = tmp_path / "single"
+    collections_dir.mkdir()
+    (collections_dir / file_name).write_text(csv_content)
+    collections, all_collections = hrc.load_collections(str(collections_dir))
+    return hrc.build_context(str(collections_dir), collections, db_session, all_collections=all_collections)
+
+
+def test_check_genomes_not_suppressed(tmp_path, metadata_db):
+    with sqlite3.connect(metadata_db) as connection:
+        connection.execute(
+            "UPDATE genome SET suppressed = 1, suppression_details = 'Replaced by a newer assembly' "
+            "WHERE genome_id = ?",
+            (WORM[2],),
+        )
+    with Session(create_engine(f"sqlite:///{metadata_db}")) as session:
+        context = _context_for(tmp_path, session, _csv(ECOLI, WORM, ("unknown_genome", UNKNOWN_UUID)))
+
+        lines = _failure_lines(hrc.check_compara_reference_genomes_not_suppressed, context)
+
+    assert lines[0].startswith("Suppressed genomes in collections: 1.")
+    assert lines[2:] == [f"2_bacteria.csv: {WORM[1]} ({WORM[0]}): Replaced by a newer assembly"]
+
+
+def test_check_genomes_released(tmp_path, db_session):
+    context = _context_for(tmp_path, db_session, _csv(ECOLI, UNRELEASED, ("unknown_genome", UNKNOWN_UUID)))
+
+    lines = _failure_lines(hrc.check_compara_reference_genomes_released, context)
+
+    # The unknown UUID is reported by check_compara_reference_genomes_exist, not here
+    assert lines[0].startswith("Collection genomes that have not been released: 1.")
+    assert lines[2:] == [f"2_bacteria.csv: {UNRELEASED[1]} ({UNRELEASED[0]})"]
+
+
+def test_check_production_names_warns_without_failing(tmp_path, db_session):
+    context = _context_for(tmp_path, db_session, _csv(("escherichia_coli", ECOLI[1]), WORM))
+
+    with pytest.warns(EnsemblDatacheckWarning) as records:
+        hrc.check_compara_reference_production_names(context)
+
+    # EnsemblDatacheckWarning prefixes the message with "Warning::<file>::<function>: "
+    message_lines = str(records[0].message).splitlines()
+    assert "Collection production names that differ from the metadata DB: 1." in message_lines[0]
+    assert message_lines[1:] == [
+        f"2_bacteria.csv: {ECOLI[1]} CSV 'escherichia_coli', metadata DB '{ECOLI[0]}'"
+    ]
 
 
 def test_bundled_config_has_compara_reference_section():
