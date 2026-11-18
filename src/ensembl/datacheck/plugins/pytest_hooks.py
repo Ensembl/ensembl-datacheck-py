@@ -13,12 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import pathlib
 from collections import defaultdict
 import pytest
 import os
 import re
 import warnings
+from _pytest.subtests import SubtestReport
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
@@ -29,6 +31,51 @@ from datetime import datetime
 import json
 
 PARSED_PARAMS_STASH_KEY = pytest.StashKey[dict[str, str]]()
+
+
+class JsonSubtestReportCollector:
+    """Collect failed subtests for inclusion in the parent JSON report entry."""
+
+    def __init__(self):
+        self.failed_subtests = defaultdict(list)
+
+    def pytest_runtest_logreport(self, report):
+        """Store the context of each failed pytest 9 subtest report."""
+        if not isinstance(report, SubtestReport):
+            return
+        if report.when != "call" or not report.failed:
+            return
+
+        context = report.context
+
+        def format_parameter(value):
+            # pytest's subtest deserializer applies saferepr a second time
+            # when xdist sends the report from a worker to the controller.
+            if hasattr(report, "worker_id"):
+                try:
+                    value = ast.literal_eval(value)
+                except (ValueError, SyntaxError):
+                    pass
+            return value
+
+        parameters = ", ".join(
+            f"{key}={format_parameter(value)}"
+            for key, value in context.kwargs.items()
+        )
+        self.failed_subtests[report.nodeid].append(
+            {
+                "message": context.msg or "(<subtest>)",
+                "parameters": f"({parameters})" if parameters else "(<subtest>)",
+            }
+        )
+
+    @pytest.hookimpl(optionalhook=True, tryfirst=True)
+    def pytest_json_modifyreport(self, json_report):
+        """Attach failed subtests to their parent pytest-json-report test entry."""
+        for test in json_report["tests"]:
+            failed_subtests = self.failed_subtests.get(test["nodeid"])
+            if failed_subtests:
+                test["_datacheck_failed_subtests"] = failed_subtests
 
 
 def _ensure_ini_value(config, name, value):
@@ -144,8 +191,8 @@ def pytest_runtest_setup(item):
             pytest.skip(f"test requires automation_resource in {automation_resource!r}")
 
 
-@pytest.fixture
-def target_file(request):
+@pytest.fixture(scope="session")
+def target_file(request) -> pathlib.Path | None:
     """
     Pytest fixture to get the target file path from the command-line options.
 
@@ -156,12 +203,14 @@ def target_file(request):
         pathlib.Path or None: The target file path, or None if not provided.
     """
     target_file = request.config.getoption("target_file")
-    if target_file:
-        target_file = pathlib.Path(target_file).expanduser()
-    return target_file
+
+    if not target_file:
+        return None
+
+    return pathlib.Path(str(target_file)).expanduser()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def subsample_size(request: pytest.FixtureRequest) -> int | None:
     """
     Pytest fixture to get the subsample size from the command-line options.
@@ -184,8 +233,8 @@ def subsample_size(request: pytest.FixtureRequest) -> int | None:
     return subsample_size
 
 
-@pytest.fixture
-def source_file(request):
+@pytest.fixture(scope="session")
+def source_file(request) -> pathlib.Path | None:
     """
     Pytest fixture to get the source file path from the command-line options.
 
@@ -196,18 +245,19 @@ def source_file(request):
         pathlib.Path or None: The source file path, or None if not provided.
     """
     source_file = request.config.getoption("source_file")
-    if source_file:
-        source_file = pathlib.Path(source_file).expanduser()
-    return source_file
+    if not source_file:
+        return None
+
+    return pathlib.Path(str(source_file)).expanduser()
 
 
 @pytest.fixture(scope="session")
-def params(request):
+def params(request: pytest.FixtureRequest) -> dict[str, str]:
     """
     Pytest fixture to get parsed key-value parameters from --params.
 
     Args:
-        request (pytest.FixtureRequest): The fixture request object.
+        request: The fixture request object.
 
     Returns:
         dict: Parsed command-line parameters.
@@ -310,6 +360,10 @@ def pytest_configure(config):
     # Parse and validate key-value parameters
     config.stash[PARSED_PARAMS_STASH_KEY] = _parse_params(config.getoption("--params"))
     _configure_json_report_defaults(config)
+    if config.getoption("--json-report"):
+        config.pluginmanager.register(
+            JsonSubtestReportCollector(), "json_subtest_report_collector"
+        )
 
     _ensure_ini_value(config, "python_files", "*.py")
     _ensure_ini_value(config, "python_classes", "*")
@@ -490,6 +544,28 @@ def _get_json_report_error_info(test):
     return None
 
 
+def _format_json_subtest_error(failed_subtests):
+    """Summarize failed subtest contexts for a parent JSON report entry."""
+    if not failed_subtests:
+        return None
+
+    failures_by_message = defaultdict(list)
+    for failed_subtest in failed_subtests:
+        failures_by_message[failed_subtest["message"]].append(
+            failed_subtest["parameters"]
+        )
+
+    failure_descriptions = [
+        f"{message} failed on [{', '.join(parameters)}]"
+        for message, parameters in failures_by_message.items()
+    ]
+    return (
+        f"{len(failures_by_message)} subtests failed on "
+        f"{len(failed_subtests)} cases. "
+        + " ".join(failure_descriptions)
+    )
+
+
 def _clean_pytest_error_line(line):
     """Remove pytest's leading error marker from an error output line."""
     stripped_line = line.strip()
@@ -588,8 +664,15 @@ def pytest_json_modifyreport(json_report):
 
         test_name = test["nodeid"].split("::")[-1]  #.split("[")[0]
 
-        error_info = _get_json_report_error_info(test)
-        result = {"status": test["outcome"], "error": error_info}
+        subtest_error = _format_json_subtest_error(
+            test.get("_datacheck_failed_subtests", [])
+        )
+        parent_error = _get_json_report_error_info(test)
+        error_info = ". ".join(filter(None, (subtest_error, parent_error))) or None
+        result = {
+            "status": "failed" if subtest_error else test["outcome"],
+            "error": error_info,
+        }
         failure_details = _get_json_report_failure_details(test)
         if failure_details:
             result["details"] = failure_details
@@ -600,7 +683,12 @@ def pytest_json_modifyreport(json_report):
     json_report.pop("collectors", "Not found `collectors` key in json report")
 
     json_report["results"] = genomes
-    json_report["status"] = "failed" if json_report["summary"]["failed"] > 0 else "passed"
+    json_report["status"] = (
+        "failed"
+        if json_report["summary"].get("failed", 0) > 0
+        or any(result["status"] == "failed" for tests in genomes.values() for result in tests.values())
+        else "passed"
+    )
     json_report["tag"] = tag
 
 
