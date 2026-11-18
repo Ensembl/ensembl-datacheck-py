@@ -16,6 +16,9 @@
 """Unit tests for automation resource config loading."""
 
 import json
+import os
+
+import pytest
 
 from ensembl.datacheck.checks.automation import conftest as automation_conftest
 
@@ -252,19 +255,19 @@ def test_automation_resource_config_supports_track_api_optional_dataset_cutoff_o
 
 def test_refget_index_uses_generic_runtime_placeholder():
     config = _build_config(environ={"REFGET_INDEX_FILE": "/local/indexdb.tkh"})
+
     assert config["refget_index"]["index_file"] == "/local/indexdb.tkh"
     assert config["refget_index"]["mongo_resource"] == "thoas_mongo_internal_resource_uri"
-
-
-def test_refget_index_placeholder_can_map_a_different_environment():
-    config = _build_config(environ={"REFGET_INDEX_FILE": "/production/refget/index.tkh"})
-    assert config["refget_index"]["index_file"] == "/production/refget/index.tkh"
 
 
 def test_refget_index_config_file_overrides_bundled_placeholder(tmp_path):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"refget_index": {"index_file": "/file/index.tkh"}}))
-    config = _build_config(config_path=str(path), environ={"REFGET_INDEX_FILE": "/generic/index.tkh"})
+    config = _build_config(
+        config_path=str(path),
+        environ={"REFGET_INDEX_FILE": "/generic/index.tkh"},
+    )
+
     assert config["refget_index"]["index_file"] == "/file/index.tkh"
 
 
@@ -273,31 +276,76 @@ def test_refget_index_environment_override_wins_over_generic_placeholder():
         "REFGET_INDEX_FILE": "/generic/index.tkh",
         "ENSEMBL_DATACHECK_REFGET_INDEX_INDEX_FILE": "/override/index.tkh",
     })
+
     assert config["refget_index"]["index_file"] == "/override/index.tkh"
 
 
 def test_refget_index_cli_override_does_not_require_placeholder_environment():
     config = _build_config(params=["refget_index.index_file=/cli/index.tkh"])
+
     assert config["refget_index"]["index_file"] == "/cli/index.tkh"
     assert automation_conftest.refget_index_config.__wrapped__(config) is config["refget_index"]
 
 
 def test_refget_index_missing_environment_gives_actionable_error():
-    import pytest
     config = _build_config()
+
     assert config["refget_index"]["index_file"] == "${REFGET_INDEX_FILE}"
-    with pytest.raises(AssertionError, match="Set REFGET_INDEX_FILE or override refget_index.index_file"):
+    with pytest.raises(
+        AssertionError,
+        match="Set REFGET_INDEX_FILE or override refget_index.index_file",
+    ):
         automation_conftest.refget_index_config.__wrapped__(config)
 
 
 def test_environment_expansion_handles_nested_values_without_mutation():
-    original = {"path": "${BASE_DUMPS}/refget", "files": ["${REFGET_INDEX_FILE}", None, 1, False],
-                "uri": "mongodb://user:literal$token@example.invalid", "unset": "${NOT_CONFIGURED}"}
+    original = {
+        "path": "${BASE_DUMPS}/refget",
+        "files": ["${REFGET_INDEX_FILE}", None, 1, False],
+        "uri": "mongodb://user:literal$token@example.invalid",
+        "unset": "${NOT_CONFIGURED}",
+    }
+
     expanded = automation_conftest._expand_environment_placeholders(original, {
-        "BASE_DUMPS": "/env/dumps", "REFGET_INDEX_FILE": "/env/index.tkh",
+        "BASE_DUMPS": "/env/dumps",
+        "REFGET_INDEX_FILE": "/env/index.tkh",
     })
+
     assert expanded["path"] == "/env/dumps/refget"
     assert expanded["files"] == ["/env/index.tkh", None, 1, False]
     assert expanded["uri"] == original["uri"]
     assert expanded["unset"] == "${NOT_CONFIGURED}"
     assert original["path"] == "${BASE_DUMPS}/refget"
+
+
+@pytest.mark.parametrize("environ, expected_root", [
+    ({"HPS_DUMPS": "/production/dumps"}, "/production/dumps"),
+    ({"BASE_DUMPS": "/generic/dumps", "HPS_DUMPS": "/production/dumps"}, "/generic/dumps"),
+])
+def test_refget_index_uses_main_environment_mapping_in_json(
+    tmp_path,
+    environ,
+    expected_root,
+):
+    config_path = tmp_path / "refget_config.json"
+    config_path.write_text(json.dumps({
+        "refget_index": {"index_file": "${BASE_DUMPS}/refget/indexdb.tkh"},
+    }))
+    config = _build_config(config_path=str(config_path), environ=environ)
+
+    assert config["refget_index"]["index_file"] == expected_root + "/refget/indexdb.tkh"
+    assert automation_conftest.refget_index_config.__wrapped__(config) is config["refget_index"]
+
+
+def test_refget_unset_placeholder_supports_process_environment(monkeypatch):
+    monkeypatch.delenv("REFGET_INDEX_FILE", raising=False)
+
+    assert automation_conftest._expand_environment_variables(
+        "${REFGET_INDEX_FILE}",
+        os.environ,
+    ) == "${REFGET_INDEX_FILE}"
+    config = _build_config(
+        environ=os.environ,
+        params=["refget_index.index_file=/cli/index.tkh"],
+    )
+    assert config["refget_index"]["index_file"] == "/cli/index.tkh"

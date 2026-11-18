@@ -139,7 +139,7 @@ def _expand_environment_variables(config, environ):
             return environ[variable_name]
 
         default_variable_name = ENVIRONMENT_VARIABLE_DEFAULTS.get(variable_name)
-        if default_variable_name in environ:
+        if default_variable_name and default_variable_name in environ:
             return environ[default_variable_name]
 
         return match.group(0)
