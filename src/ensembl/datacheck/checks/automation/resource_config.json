@@ -48,6 +48,15 @@
               "seqs/cdna.txt.zst","seqs/cds.txt.zst","seqs/pep.txt.zst","seqs/seq.txt.zst"
             ]
         },
+        "refget_index": {
+          "type": "file",
+          "ignore": "False",
+          "index_file": "${REFGET_INDEX_FILE}",
+          "index_backend": "auto",
+          "mongo_resource": "thoas_mongo_internal_resource_uri",
+          "mongo_database": null,
+          "report": null
+        },
         "track_api_files": {
           "type": "dir",
           "base_path": "${BASE_DUMPS}",
