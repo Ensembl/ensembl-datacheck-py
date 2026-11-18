@@ -61,28 +61,44 @@ def metadata_db(tmp_path):
     db_path = tmp_path / "metadata.db"
     shutil.copy(METADATA_DB, db_path)
     with sqlite3.connect(db_path) as connection:
+        # The shared fixture contains production-like compara_reference groups.
+        # This unit-test fixture defines its own complete compara_reference state.
+        connection.execute(
+            "DELETE FROM genome_group_member WHERE genome_group_id IN "
+            "(SELECT genome_group_id FROM genome_group WHERE type = 'compara_reference')"
+        )
+        connection.execute("DELETE FROM genome_group WHERE type = 'compara_reference'")
+
+        # Allocate IDs above the remaining rows so future fixture additions do
+        # not collide with this test data.
+        first_group_id = connection.execute(
+            "SELECT COALESCE(MAX(genome_group_id), 0) + 1 FROM genome_group"
+        ).fetchone()[0]
+        bacteria_group_id, protists_group_id, orphan_group_id, ignored_group_id = range(
+            first_group_id, first_group_id + 4
+        )
         connection.executemany(
             "INSERT INTO genome_group (genome_group_id, type, name, label, searchable, genome_group_uuid) "
             "VALUES (?, ?, ?, ?, 0, ?)",
             [
-                (1, "compara_reference", "2", "Bacteria", "00000000-0000-0000-0000-00000000gg01"),
-                (2, "compara_reference", "Protists", "Protists", "00000000-0000-0000-0000-00000000gg02"),
-                (3, "compara_reference", "9999", "Orphan", "00000000-0000-0000-0000-00000000gg03"),
-                (4, "structural_variant", "7742", "Vertebrata", "00000000-0000-0000-0000-00000000gg04"),
+                (bacteria_group_id, "compara_reference", "2", "Bacteria", "00000000-0000-0000-0000-00000000gg01"),
+                (protists_group_id, "compara_reference", "Protists", "Protists", "00000000-0000-0000-0000-00000000gg02"),
+                (orphan_group_id, "compara_reference", "9999", "Orphan", "00000000-0000-0000-0000-00000000gg03"),
+                (ignored_group_id, "structural_variant", "7742", "Vertebrata", "00000000-0000-0000-0000-00000000gg04"),
             ],
         )
         connection.executemany(
             "INSERT INTO genome_group_member (is_reference, genome_id, genome_group_id, release_id, is_current) "
             "VALUES (0, ?, ?, ?, ?)",
             [
-                (ECOLI[2], 1, PARTIAL_RELEASE_ID, 1),
-                (WORM[2], 1, PARTIAL_RELEASE_ID, 1),
-                (YEAST[2], 1, PARTIAL_RELEASE_ID, 0),  # dropped member
-                (PLASMODIUM[2], 2, PARTIAL_RELEASE_ID, 1),
-                (PLASMODIUM[2], 2, PARTIAL_RELEASE_ID, 1),  # duplicate
-                (YEAST[2], 2, INTEGRATED_RELEASE_ID, 1),  # not a partial release
-                (ECOLI[2], 3, PARTIAL_RELEASE_ID, 1),
-                (WORM[2], 4, PARTIAL_RELEASE_ID, 1),
+                (ECOLI[2], bacteria_group_id, PARTIAL_RELEASE_ID, 1),
+                (WORM[2], bacteria_group_id, PARTIAL_RELEASE_ID, 1),
+                (YEAST[2], bacteria_group_id, PARTIAL_RELEASE_ID, 0),  # dropped member
+                (PLASMODIUM[2], protists_group_id, PARTIAL_RELEASE_ID, 1),
+                (PLASMODIUM[2], protists_group_id, PARTIAL_RELEASE_ID, 1),  # duplicate
+                (YEAST[2], protists_group_id, INTEGRATED_RELEASE_ID, 1),  # not a partial release
+                (ECOLI[2], orphan_group_id, PARTIAL_RELEASE_ID, 1),
+                (WORM[2], ignored_group_id, PARTIAL_RELEASE_ID, 1),
             ],
         )
     return db_path
