@@ -62,12 +62,13 @@ def metadata_db(tmp_path):
     shutil.copy(METADATA_DB, db_path)
     with sqlite3.connect(db_path) as connection:
         connection.executemany(
-            "INSERT INTO genome_group (genome_group_id, type, name, label, searchable) VALUES (?, ?, ?, ?, 0)",
+            "INSERT INTO genome_group (genome_group_id, type, name, label, searchable, genome_group_uuid) "
+            "VALUES (?, ?, ?, ?, 0, ?)",
             [
-                (1, "compara_reference", "2", "Bacteria"),
-                (2, "compara_reference", "Protists", "Protists"),
-                (3, "compara_reference", "9999", "Orphan"),
-                (4, "structural_variant", "7742", "Vertebrata"),
+                (1, "compara_reference", "2", "Bacteria", "00000000-0000-0000-0000-00000000gg01"),
+                (2, "compara_reference", "Protists", "Protists", "00000000-0000-0000-0000-00000000gg02"),
+                (3, "compara_reference", "9999", "Orphan", "00000000-0000-0000-0000-00000000gg03"),
+                (4, "structural_variant", "7742", "Vertebrata", "00000000-0000-0000-0000-00000000gg04"),
             ],
         )
         connection.executemany(
