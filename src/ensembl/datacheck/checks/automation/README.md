@@ -144,6 +144,9 @@ JSON reports are written with two-space indentation by default. Override with
   release path. Native output includes the full discrepancy list inline. JSON
   reports store the same full list under the failure's `details.items` field.
 - Mongo-related checks use URIs from `resource_config.json` (`compara_mongo_uri`, `thoas_mongo_*`).
+- `compara_reference/` compares the homology reference collection CSV files with
+  the `compara_reference` genome groups in the metadata database. Run it with
+  `--test=automation/compara_reference`; see `compara_reference/README.md`.
 - `automation_thoas_genome_mapping` checks that each genome has a document with
   its `genome_uuid` and `release_name` in the Thoas `metadata.genome_mapping`
   collection, with a `release_version` matching the metadata database.

@@ -135,5 +135,9 @@
         "stage_site": {
           "ignore": "False",
           "uri": "https://staging-2020.ensembl.org"
+        },
+        "compara_reference": {
+          "ignore": "False",
+          "path": ""
         }
 }
