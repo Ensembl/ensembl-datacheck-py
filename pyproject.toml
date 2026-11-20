@@ -40,7 +40,8 @@ dependencies = [
     "pytest-json-report>=1.5.0",
     "pytest-xdist==3.8.0",
     "pyyaml>=6.0",
-    "pydantic>=2,<3"
+    "pydantic>=2,<3",
+    "gffutils>=0.14",
 ]
 
 [project.optional-dependencies]
