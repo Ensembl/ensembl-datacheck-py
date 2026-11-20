@@ -25,7 +25,7 @@ Checks performed:
 
 from pathlib import Path
 
-from pysam import BGZFile, TabixFile
+from pysam import TabixFile
 
 from ensembl.datacheck.functions.file_checks import file_exists
 from ensembl.datacheck.functions.gff_utils import gff_reader
@@ -37,6 +37,36 @@ __all__ = [
     "check_is_bgzf_gff_file",
     "check_validity",
 ]
+
+
+def _is_bgzf_compressed_file(file_path: Path) -> bool:
+    """Return whether a gzip file has the BGZF ``BC`` extra subfield."""
+    with file_path.open("rb") as gff_file:
+        header = gff_file.read(12)
+        if (
+            len(header) != 12
+            or header[:3] != b"\x1f\x8b\x08"
+            or not header[3] & 0x04
+        ):
+            return False
+
+        extra_length = int.from_bytes(header[10:12], byteorder="little")
+        extra_fields = gff_file.read(extra_length)
+
+    field_offset = 0
+    while field_offset + 4 <= len(extra_fields):
+        field_identifier = extra_fields[field_offset : field_offset + 2]
+        field_length = int.from_bytes(
+            extra_fields[field_offset + 2 : field_offset + 4], byteorder="little"
+        )
+        field_end = field_offset + 4 + field_length
+        if field_end > len(extra_fields):
+            return False
+        if field_identifier == b"BC" and field_length == 2:
+            return True
+        field_offset = field_end
+
+    return False
 
 
 def check_exist(target_file: Path | None, source_file: Path | None) -> None:
@@ -89,16 +119,15 @@ def check_is_bgzf_gff_file(target_file: Path | None, source_file: Path | None) -
             continue
 
         try:
-            with BGZFile(str(file_path), "rb") as gff_file:
-                gff_file.read(1)
-        except (OSError, ValueError) as exc:
+            is_bgzf_compressed = _is_bgzf_compressed_file(file_path)
+        except OSError as exc:
             raise AssertionError(
                 f"File is not identified as BGZF-compressed: {file_path}"
             ) from exc
-        except AssertionError as exc:
-            raise AssertionError(
-                f"File is not identified as BGZF-compressed: {file_path}"
-            ) from exc
+
+        assert is_bgzf_compressed, (
+            f"File is not identified as BGZF-compressed: {file_path}"
+        )
 
 
 def check_has_valid_index_file(
