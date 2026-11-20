@@ -26,7 +26,7 @@ import warnings
 
 import pytest
 
-from ensembl.datacheck.checks.variation.types import Csq_subfield_spec
+from ensembl.datacheck.checks.variation.type_defs import Csq_subfield_spec
 from ensembl.datacheck.checks.vcf import *
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
 from ensembl.datacheck.functions.vcf_utils import (

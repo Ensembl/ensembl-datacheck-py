@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from ensembl.datacheck.checks.variation.types import Csq_subfield_spec
+from ensembl.datacheck.checks.variation.type_defs import Csq_subfield_spec
 from ensembl.datacheck.functions.vcf_utils import subsample_variants_from_file
 
 # Constants

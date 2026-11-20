@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-variation/types.py
+variation/type_defs.py
 
 Type definitions for variation-specific datachecks.
 """
