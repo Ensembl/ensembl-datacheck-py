@@ -13,11 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-gff_utils.py
-
-Shared helpers for GFF parsing and feature type counting.
-"""
+"""Shared helpers for parsing GFF files and counting their feature types."""
 
 import tempfile
 from collections import Counter
@@ -27,21 +23,35 @@ import gffutils
 
 
 def gff_reader(gff_file_path: str | Path) -> gffutils.FeatureDB:
-    """
-    Provide a gffutils FeatureDB database opened on a GFF file path.
+    """Build a temporary SQLite feature database from a GFF file.
 
     Args:
         gff_file_path (str or pathlib.Path): The path to the GFF file.
 
+    Returns:
+        gffutils.FeatureDB: A database containing the parsed GFF features.
+
     Raises:
-        Exception: Propagates import/open failures from gffutils.
+        Exception: If ``gffutils`` cannot read or parse the GFF, or cannot
+            create its temporary SQLite database.
     """
 
     with tempfile.NamedTemporaryFile() as temporary_file:
         return gffutils.create_db(gff_file_path, temporary_file.name)
 
 
-def get_gff_feature_type_counts(gff_file_path: str | Path):
+def get_gff_feature_type_counts(gff_file_path: str | Path) -> Counter[str]:
+    """Count records for each feature type in a GFF file.
+
+    Args:
+        gff_file_path (str or pathlib.Path): The path to the GFF file.
+
+    Returns:
+        Counter[str]: Mapping of feature-type names to their record counts.
+
+    Raises:
+        Exception: If the GFF cannot be read or parsed into a feature database.
+    """
     gff_db = gff_reader(gff_file_path)
     return Counter(
         {
