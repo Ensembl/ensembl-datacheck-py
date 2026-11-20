@@ -105,9 +105,9 @@ class _DummyCollectionConfig:
 
 
 def test_collection_skips_items_for_other_dataset_types():
-    common_check = _DummyItem("short_variants", "structural_variant")
+    common_check = _DummyItem("short_variants", "structural_variants")
     short_variant_check = _DummyItem("short_variants")
-    structural_variant_check = _DummyItem("structural_variant")
+    structural_variant_check = _DummyItem("structural_variants")
     generic_check = _DummyItem()
     items = [
         common_check,
@@ -118,7 +118,7 @@ def test_collection_skips_items_for_other_dataset_types():
 
     pytest_collection_modifyitems(
         items,
-        _DummyCollectionConfig("structural_variant"),
+        _DummyCollectionConfig("structural_variants"),
     )
 
     assert len(items) == 4
@@ -126,7 +126,7 @@ def test_collection_skips_items_for_other_dataset_types():
 
 
 def test_collection_skips_nothing_when_dataset_type_is_not_selected():
-    items = [_DummyItem("short_variants"), _DummyItem("structural_variant")]
+    items = [_DummyItem("short_variants"), _DummyItem("structural_variants")]
 
     pytest_collection_modifyitems(items, _DummyCollectionConfig(None))
 

@@ -31,7 +31,7 @@ from ensembl.datacheck.json_schemas import TranscriptomicSelection
 
 FILE_HANDOVER_SCHEMA_NAMES = frozenset({
     "short_variants",
-    "structural_variant",
+    "structural_variants",
     "regulation_tracks",
     "expression_tracks",
     "segmental_duplication",

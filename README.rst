@@ -98,7 +98,7 @@ To run a variation-specific check with a secondary source file::
 
 To run common and structural-variant-specific checks for a variation dataset::
 
-    ensembl-datacheck --test=variation --dataset-type=structural_variant --target-file=~/TEST/example.vcf.gz
+    ensembl-datacheck --test=variation --dataset-type=s --target-file=~/TEST/example.vcf.gz
 
 ``--file`` and ``--target-file`` are CLI aliases for the primary file under test.
 When ``--dataset-type`` is omitted, checks are not filtered by dataset type.
