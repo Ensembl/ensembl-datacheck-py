@@ -39,12 +39,12 @@ from ensembl.datacheck.functions.vcf_utils import (
 # module level marker to select test per filetype and dataset type
 pytestmark = [
     pytest.mark.dataset_type('short_variants'),
-    pytest.mark.dataset_type('structural_variants'),
     pytest.mark.file_extension("vcf.gz")
 ]
 
 
 # Header checks
+@pytest.mark.dataset_type('structural_variants')
 def check_csq_in_header(subtests: pytest.Subtests, target_file: Path, csq_specs_species_filtered: dict[str, Csq_subfield_spec]):
     """
     Check that the VCF INFO header contains the CSQ field.
@@ -68,6 +68,7 @@ def check_csq_in_header(subtests: pytest.Subtests, target_file: Path, csq_specs_
             assert field in csq_fields, f"CSQ field '{field}' not found in the CSQ fromat string."
 
 
+@pytest.mark.dataset_type('structural_variants')
 def check_csq_format_matches_value_count(target_file: Path, target_variants_subsample: dict):
     """
     Check that the CSQ subfield count as specified in the format description
@@ -86,6 +87,7 @@ def check_csq_format_matches_value_count(target_file: Path, target_variants_subs
             assert len(csq) == len(csq_fields), f"Variant '{variant_id}' has {len(csq)} CSQ subfields, but the format description specifies {len(csq_fields)}."
 
 
+@pytest.mark.dataset_type('structural_variants')
 def check_source_in_header(target_file: Path):
     """
     Check that the VCF header contains the source field.
@@ -103,6 +105,7 @@ def check_source_in_header(target_file: Path):
 
 
 # Source comparison checks
+@pytest.mark.dataset_type('structural_variants')
 def check_variant_count_source_comparison(target_file: Path, source_file: Path | None):
     """
     Compare target VCF variant count with source VCF variant count.
@@ -133,6 +136,7 @@ def check_variant_count_source_comparison(target_file: Path, source_file: Path |
     assert (target_variant_count / source_variant_count) <= 1, "Target file contains more variants than the source file."
 
 
+@pytest.mark.dataset_type('structural_variants')
 def check_per_chr_variant_count_source_comparison(subtests: pytest.Subtests, target_file: Path, source_file: Path | None):
     """
     Compare target VCF variant counts with source VCF variant counts per chromosome.
@@ -182,6 +186,7 @@ def check_per_chr_variant_count_source_comparison(subtests: pytest.Subtests, tar
 
 
 # Content checks
+@pytest.mark.dataset_type('structural_variants')
 def check_subsample_csq_content(csq_specs_species_filtered: dict[str, Csq_subfield_spec], subtests: pytest.Subtests, target_file: Path, target_variants_subsample: dict):
     """
     Check that the CSQ field is populated as expected
@@ -227,6 +232,7 @@ def check_subsample_csq_content(csq_specs_species_filtered: dict[str, Csq_subfie
 
 
 # Summary statistics checks
+@pytest.mark.dataset_type('structural_variants')
 def check_summary_stats_per_variant(target_variants_subsample: dict):
     """
     Validate per-variant summary fields (NCITE compared to CSQ PUBMED entries).
@@ -257,6 +263,7 @@ def check_summary_stats_per_variant(target_variants_subsample: dict):
             assert pubmed_count == ncite, f"[{chrom}:{pos}:{variant_id}] pubmed_count - {pubmed_count}; ncite - {ncite}"
 
 
+@pytest.mark.dataset_type('structural_variants')
 def check_summary_stats_per_allele(target_variants_subsample: dict):
     """
     Validate per-allele summary fields.
@@ -374,7 +381,6 @@ def check_summary_stats_per_allele(target_variants_subsample: dict):
             assert dataset_counts == summary_stats, f"[{chrom}:{pos}:{variant_id} - {summary_fieldname}] dataset_counts - {dataset_counts}; datasets - {field_datasets}; summary_stat - {summary_stats}"
 
 
-@pytest.mark.dataset_type('short_variants')
 def check_summary_stats_frequency(target_variants_subsample: dict, params: dict[str, str]):
         """Validate representative allele frequency (RAF) matches frequencies from CSQ fields.
         This test is only applicable to human species (GRCh38 and GRCh37).
