@@ -40,8 +40,12 @@ class Csq_subfield_spec(TypedDict):
     Dict defining a CSQ subfield specification.
         * canbe_empty: Whether the subfield is allowed to have no data for (some) records.
         * species: Species for which the subfield is expected to exist. 'all' if it is expected to exist for all species.
+        * dataset_type: Dataset type (e.g. 'short_variants', 'structural_variants') for which the subfield is expected
+          to exist. 'all' (the default when omitted) if it is expected to exist for all dataset types.
     """
     canbe_empty: NotRequired[ReadOnly[bool]]
     """Whether the subfield is allowed to have no data for (some) records."""
     species: ReadOnly[str]
     """Species for which the subfield is expected to exist. 'all' if it is expected to exist for all species."""
+    dataset_type: NotRequired[ReadOnly[str]]
+    """Dataset type for which the subfield is expected to exist. 'all' (default when omitted) for all dataset types."""
