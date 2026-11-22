@@ -173,13 +173,16 @@ def variation_params(params: dict[str, str]) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def source_variants_subsample(source_file: Path | None, params: dict[str, str]) -> dict[str, dict[str, Any]]:
+def source_variants_subsample(
+    source_file: Path | None, params: dict[str, str], subsample_size: int | None
+) -> dict[str, dict[str, Any]]:
     """
     Subsample variants from the source file.
 
     Args:
         source_file: Path to the source VCF file.
         params: the CLI input parameters.
+        subsample_size: Number of variants to sample, or None (--subsample-size=0) to read all.
 
     Returns:
         dict: Subsampled variants.
@@ -190,16 +193,19 @@ def source_variants_subsample(source_file: Path | None, params: dict[str, str]) 
     if source_file is None:
         raise ValueError("source_file param must be defined for source subsampling.")
 
-    return subsample_variants_from_file(source_file, params)
+    return subsample_variants_from_file(source_file, params, no_variants=subsample_size)
 
 @pytest.fixture(scope="session")
-def target_variants_subsample(target_file: Path | None, params: dict[str, str]) -> dict[str, dict[str, Any]]:
+def target_variants_subsample(
+    target_file: Path | None, params: dict[str, str], subsample_size: int | None
+) -> dict[str, dict[str, Any]]:
     """
     Subsample variants from the target file.
 
     Args:
         target_file: Path to the target VCF file.
         params: the CLI input parameters.
+        subsample_size: Number of variants to sample, or None (--subsample-size=0) to read all.
 
     Returns:
         dict: Subsampled variants.
@@ -210,4 +216,4 @@ def target_variants_subsample(target_file: Path | None, params: dict[str, str]) 
     if target_file is None:
         raise ValueError("target_file param must be defined for taret subsampling.")
 
-    return subsample_variants_from_file(target_file, params)
+    return subsample_variants_from_file(target_file, params, no_variants=subsample_size)

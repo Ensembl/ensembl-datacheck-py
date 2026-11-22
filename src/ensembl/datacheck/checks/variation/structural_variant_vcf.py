@@ -22,14 +22,15 @@ Checks performed:
 1. check_id_is_not_graph_node: Identifiers do not contain graph nodes.
 2. check_symbolic_alts_well_formed: Symbolic ALTs are well formed, including <CN=n>.
 3. check_non_symbolic_min_size: Non-symbolic records are at least 50 bp.
+
+The checks run on the target_variants_subsample fixture, so --subsample-size
+controls how many records are checked (0 checks every record).
 """
 
-from pathlib import Path
 import re
+from typing import Any
 
 import pytest
-
-from ensembl.datacheck.functions.vcf_utils import vcf_reader
 
 pytestmark = [
                 pytest.mark.dataset_type("structural_variants"),
@@ -45,8 +46,8 @@ NON_SYMBOLIC_ALT = re.compile(r"^[ACGTNacgtn]+$")
 GRAPH_NODE_ID = re.compile(r"(?:[<>]\d+)+")
 
 
-def _record_label(record) -> str:
-    return record.ID or f"{record.CHROM}:{record.POS}:{record.REF}"
+def _variant_label(variant_id: str | None, variant: dict[str, Any]) -> str:
+    return variant_id or f"{variant['chrom']}:{variant['pos']}:{variant['ref']}"
 
 
 def _assert_no_failures(failures: list[str], message: str) -> None:
@@ -56,7 +57,7 @@ def _assert_no_failures(failures: list[str], message: str) -> None:
     )
 
 
-def check_id_is_not_graph_node(target_file: Path):
+def check_id_is_not_graph_node(target_variants_subsample: dict[str, dict[str, Any]]):
     """
     Check that the identifier field does not contain graph nodes.
 
@@ -64,26 +65,22 @@ def check_id_is_not_graph_node(target_file: Path):
     and we replace them with modified SPDI identifiers.
 
     Args:
-        target_file: Path to the structural variant VCF file.
+        target_variants_subsample: Variants sampled from the structural variant VCF, keyed by ID.
 
     Raises:
         AssertionError: If any identifier are malformed such as containing graph nodes.
     """
-    reader = vcf_reader(target_file)
     failures = []
-    try:
-        for record in reader:
-            if record.ID and GRAPH_NODE_ID.fullmatch(record.ID):
-                failures.append(f"{record.CHROM}:{record.POS} ({record.ID})")
-    finally:
-        reader.close()
+    for variant_id, variant in target_variants_subsample.items():
+        if variant_id and GRAPH_NODE_ID.fullmatch(variant_id):
+            failures.append(f"{variant['chrom']}:{variant['pos']} ({variant_id})")
 
     _assert_no_failures(
         failures, f"{len(failures)} record(s) have a malformed identifier."
     )
 
 
-def check_symbolic_alts_well_formed(target_file: Path):
+def check_symbolic_alts_well_formed(target_variants_subsample: dict[str, dict[str, Any]]):
     """
     Check that symbolic ALT alleles are well formed.
 
@@ -91,31 +88,27 @@ def check_symbolic_alts_well_formed(target_file: Path):
     <CN=n> (or <CNn>) with n a non-negative integer.
 
     Args:
-        target_file: Path to the structural variant VCF file.
+        target_variants_subsample: Variants sampled from the structural variant VCF, keyed by ID.
 
     Raises:
         AssertionError: If any symbolic ALT is malformed.
     """
-    reader = vcf_reader(target_file)
     failures = []
-    try:
-        for record in reader:
-            for alt in record.ALT:
-                if NON_SYMBOLIC_ALT.match(alt) or alt in ("*", "."):
-                    continue
-                if not SYMBOLIC_ALT.match(alt):
-                    failures.append(f"{_record_label(record)} ({alt})")
-                elif alt.startswith("<CN") and not COPY_NUMBER_ALT.match(alt):
-                    failures.append(f"{_record_label(record)} ({alt})")
-    finally:
-        reader.close()
+    for variant_id, variant in target_variants_subsample.items():
+        for alt in variant["alts"]:
+            if NON_SYMBOLIC_ALT.match(alt) or alt in ("*", "."):
+                continue
+            if not SYMBOLIC_ALT.match(alt):
+                failures.append(f"{_variant_label(variant_id, variant)} ({alt})")
+            elif alt.startswith("<CN") and not COPY_NUMBER_ALT.match(alt):
+                failures.append(f"{_variant_label(variant_id, variant)} ({alt})")
 
     _assert_no_failures(
         failures, f"{len(failures)} record(s) have a malformed symbolic ALT."
     )
 
 
-def check_non_symbolic_min_size(target_file: Path):
+def check_non_symbolic_min_size(target_variants_subsample: dict[str, dict[str, Any]]):
     """
     Check that records without symbolic ALTs are at least 50 bp.
 
@@ -123,23 +116,19 @@ def check_non_symbolic_min_size(target_file: Path):
     The size is the longest of REF and the ALT alleles.
 
     Args:
-        target_file: Path to the structural variant VCF file.
+        target_variants_subsample: Variants sampled from the structural variant VCF, keyed by ID.
 
     Raises:
         AssertionError: If any non-symbolic record is smaller than 50 bp.
     """
-    reader = vcf_reader(target_file)
     failures = []
-    try:
-        for record in reader:
-            alts = record.ALT
-            if not alts or not all(NON_SYMBOLIC_ALT.match(alt) for alt in alts):
-                continue
-            size = max(len(record.REF), *(len(alt) for alt in alts))
-            if size < MIN_SV_SIZE:
-                failures.append(f"{_record_label(record)} ({size} bp)")
-    finally:
-        reader.close()
+    for variant_id, variant in target_variants_subsample.items():
+        alts = variant["alts"]
+        if not alts or not all(NON_SYMBOLIC_ALT.match(alt) for alt in alts):
+            continue
+        size = max(len(variant["ref"]), *(len(alt) for alt in alts))
+        if size < MIN_SV_SIZE:
+            failures.append(f"{_variant_label(variant_id, variant)} ({size} bp)")
 
     _assert_no_failures(
         failures,

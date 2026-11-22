@@ -227,21 +227,25 @@ def parse_CSQ_format(vcf_file: Path | str) -> list[str]:
         ) from exc
 
 
-def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants:int=10000) -> dict[str, dict[str, Any]]:
+def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants: int | None = 10000) -> dict[str, dict[str, Any]]:
     """
-    Build a sampled variant dictionary from source VCF.
+    Build a sampled variant dictionary from a VCF file.
 
-    The logic mirrors the old datacheck fixture:
+    When no_variants is set, the logic mirrors the old datacheck fixture:
     - sample by random chromosome + random start region hops
     - stop after collecting no_variants samples, or when region hops reach
       max_random_regions (default 1000; alias no_rvariants)
-    - keep variants in a dict keyed by ID
     - for each sampled region, include at most 11 variants
+
+    When no_variants is None (subsampling disabled), every record in the file is read.
+
+    Variants are kept in a dict keyed by ID in both modes.
 
     Args:
         vcf_file: Path to VCF file to sample.
         params: Parsed command-line params.
-        no_variants: Target number of sampled variants. Defaults to 10000.
+        no_variants: Target number of sampled variants, or None to read every record.
+            Defaults to 10000.
 
     Returns:
         dict: Variant dictionary keyed by variant ID; duplicate IDs overwrite
@@ -251,7 +255,6 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
         AssertionError: If source VCF cannot be read or lacks required headers.
     """
     max_random_regions = get_max_random_regions(params)
-    SUMMARY_STATS_FIELDS = ["NVPHN", "NGPHN", "NTCSQ", "NRCSQ", "NGENE", "NCITE", "RAF"]
 
     reader = None
     try:
@@ -263,6 +266,12 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
         assert chroms, "Source VCF has no sequence names in the header."
 
         variant_list = {}
+
+        if no_variants is None:
+            for variant in reader:
+                variant_list[variant.ID] = _variant_to_dict(variant, csq_fields)
+            return variant_list
+
         total_no_variants = 0
         iteration = 0
 
@@ -272,25 +281,7 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
 
             no_variants_in_region = 0
             for variant in reader(f"{chrom}:{start}"):
-                variant_id = variant.ID
-                variant_list[variant_id] = {
-                    "chrom": variant.CHROM,
-                    "pos": variant.POS,
-                    "ref": variant.REF,
-                    "alts": variant.ALT,
-                    "csqs": [],
-                }
-
-                for csq in variant.INFO["CSQ"].split(","):
-                    csq_values = csq.split("|")
-                    csq_hash = {
-                        csq_fields[idx]: csq_value
-                        for idx, csq_value in enumerate(csq_values)
-                    }
-                    variant_list[variant_id]["csqs"].append(csq_hash)
-
-                for ss_field in SUMMARY_STATS_FIELDS:
-                    variant_list[variant_id][ss_field] = variant.INFO.get(ss_field, None)
+                variant_list[variant.ID] = _variant_to_dict(variant, csq_fields)
 
                 total_no_variants += 1
                 no_variants_in_region += 1
@@ -309,3 +300,38 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
     finally:
         if reader is not None:
             reader.close()
+
+
+def _variant_to_dict(variant, csq_fields: list[str]) -> dict[str, Any]:
+    """
+    Convert a cyvcf2 variant into the sampled variant dict.
+
+    Args:
+        variant: cyvcf2 variant record.
+        csq_fields: CSQ subfield names from the VCF header.
+
+    Returns:
+        dict: chrom, pos, ref, alts, parsed CSQ entries and summary stats fields.
+    """
+    SUMMARY_STATS_FIELDS = ["NVPHN", "NGPHN", "NTCSQ", "NRCSQ", "NGENE", "NCITE", "RAF"]
+
+    variant_dict = {
+        "chrom": variant.CHROM,
+        "pos": variant.POS,
+        "ref": variant.REF,
+        "alts": variant.ALT,
+        "csqs": [],
+    }
+
+    for csq in variant.INFO["CSQ"].split(","):
+        csq_values = csq.split("|")
+        csq_hash = {
+            csq_fields[idx]: csq_value
+            for idx, csq_value in enumerate(csq_values)
+        }
+        variant_dict["csqs"].append(csq_hash)
+
+    for ss_field in SUMMARY_STATS_FIELDS:
+        variant_dict[ss_field] = variant.INFO.get(ss_field, None)
+
+    return variant_dict
