@@ -66,25 +66,33 @@ def test_configure_json_report_defaults_ignores_non_json_report_runs():
 
 
 class _DummyItem:
-    def __init__(self, *dataset_types, extensions=()):
+    def __init__(self, *dataset_types, extensions=(), function_dataset_types=()):
+        self._function_node = object()
+        self._module_node = object()
         self._markers = [
-            pytest.mark.dataset_type(dataset_type)
+            (self._function_node, pytest.mark.dataset_type(dataset_type).mark)
+            for dataset_type in function_dataset_types
+        ] + [
+            (self._module_node, pytest.mark.dataset_type(dataset_type).mark)
             for dataset_type in dataset_types
         ] + [
-            pytest.mark.file_extension(extension)
+            (self._module_node, pytest.mark.file_extension(extension).mark)
             for extension in extensions
         ]
         self.callspec = None
 
+    def iter_markers_with_node(self, name=None):
+        return iter((node, marker) for node, marker in self._markers if marker.name == name)
+
     def iter_markers(self, name=None):
-        return iter(marker for marker in self._markers if marker.name == name)
+        return iter(marker for _, marker in self.iter_markers_with_node(name))
 
     def add_marker(self, marker):
-        self._markers.append(marker)
+        self._markers.append((self._function_node, marker.mark))
 
     @property
     def skipped(self):
-        return any(marker.name == "skip" for marker in self._markers)
+        return any(marker.name == "skip" for _, marker in self._markers)
 
 
 class _DummyCollectionConfig:
@@ -123,6 +131,29 @@ def test_collection_skips_items_for_other_dataset_types():
 
     assert len(items) == 4
     assert [item.skipped for item in items] == [False, True, False, False]
+
+
+def test_collection_function_dataset_type_overrides_module_markers():
+    # module marked for both dataset types, function restricted to short_variants
+    items = [
+        _DummyItem(
+            "short_variants", "structural_variants",
+            function_dataset_types=("short_variants",),
+        ),
+        _DummyItem("short_variants", "structural_variants")
+    ]
+    pytest_collection_modifyitems(items, _DummyCollectionConfig("structural_variants"))
+    assert [item.skipped for item in items] == [True, False]
+
+    items = [
+        _DummyItem(
+            "short_variants", "structural_variants",
+            function_dataset_types=("short_variants",),
+        ),
+        _DummyItem("short_variants", "structural_variants"),
+    ]
+    pytest_collection_modifyitems(items, _DummyCollectionConfig("short_variants"))
+    assert [item.skipped for item in items] == [False, False]
 
 
 def test_collection_skips_nothing_when_dataset_type_is_not_selected():

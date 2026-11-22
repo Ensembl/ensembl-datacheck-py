@@ -374,6 +374,7 @@ def check_summary_stats_per_allele(target_variants_subsample: dict):
             assert dataset_counts == summary_stats, f"[{chrom}:{pos}:{variant_id} - {summary_fieldname}] dataset_counts - {dataset_counts}; datasets - {field_datasets}; summary_stat - {summary_stats}"
 
 
+@pytest.mark.dataset_type('short_variants')
 def check_summary_stats_frequency(target_variants_subsample: dict, params: dict[str, str]):
         """Validate representative allele frequency (RAF) matches frequencies from CSQ fields.
         This test is only applicable to human species (GRCh38 and GRCh37).

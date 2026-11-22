@@ -468,7 +468,31 @@ def pytest_sessionstart(session):
     print("Contributions are always welcome")
 
 
-# # ### JSON Report Setup on param --json-report  enabled #####
+def _closest_marker_args(item, name):
+    """
+    Collect the args of `name` markers from the closest node that has any.
+
+    Markers are searched from the item outwards (function > class > module), and only
+    the markers of the first node that defines `name` are used.
+
+    Args:
+        item: The pytest item.
+        name (str): Marker name.
+
+    Returns:
+        set: Marker args from the closest marked node; empty if no node has the marker.
+    """
+    closest_node = None
+    args = set()
+    for node, marker in item.iter_markers_with_node(name=name):
+        if closest_node is None:
+            closest_node = node
+        elif node is not closest_node:
+            break
+        args.update(marker.args)
+    return args
+
+
 def pytest_collection_modifyitems(items, config):
     # The actual early-exit for a CacheManager cache hit (flagged on config
     # in pytest_configure, see cache_manager.py's docs) happens here rather
@@ -484,8 +508,10 @@ def pytest_collection_modifyitems(items, config):
     dataset_type = config.getoption("dataset_type")
     if dataset_type:
         for item in items:
-            markers = tuple(item.iter_markers(name="dataset_type"))
-            if markers and not any(dataset_type in marker.args for marker in markers):
+            # The closest marked scope wins, so a function-level dataset_type marker
+            # overrides (rather than extends) the module-level ones.
+            allowed_dataset_types = _closest_marker_args(item, "dataset_type")
+            if allowed_dataset_types and dataset_type not in allowed_dataset_types:
                 item.add_marker(pytest.mark.skip(reason=f"Skipping due to dataset_type mismatch: {dataset_type}"))
 
     target_file = config.getoption("target_file")
