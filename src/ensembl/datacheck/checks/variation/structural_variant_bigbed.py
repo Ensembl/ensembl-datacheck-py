@@ -32,6 +32,7 @@ The checks run on the BigBed entries of variants sampled from the source VCF
 --subsample-size controls how many entries are checked (0 checks all of them).
 """
 
+import re
 import warnings
 
 import pytest
@@ -50,6 +51,8 @@ EXTRA_FIELDS = ["id", "variety", "reference", "alts", "group", "severity", "exte
 MAX_REPORTED_FAILURES = 10
 # Insertions and breakpoints are placed on a single point (end == start)
 POINT_VARIETY_SUFFIXES = ("insertion", "breakpoint")
+# A stricter check for integer fields: optional minus sign followed by one or more digits.
+INTEGER_FIELD = re.compile(r"-?[0-9]+")
 
 
 @pytest.fixture(scope="module")
@@ -137,7 +140,7 @@ def check_field_layout(target_entries_subsample):
             continue
         named = dict(zip(EXTRA_FIELDS, fields))
         for numeric in ("group", "extent"):
-            if not named[numeric].lstrip("-").isdigit():
+            if not INTEGER_FIELD.fullmatch(named[numeric]):
                 failures.append(f"{label} {numeric}='{named[numeric]}' is not an integer")
 
     _assert_no_failures(failures, f"{len(failures)} entries have an invalid field layout.")
