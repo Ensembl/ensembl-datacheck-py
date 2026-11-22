@@ -34,7 +34,6 @@ import pytest
 
 pytestmark = [
                 pytest.mark.dataset_type("structural_variants"),
-                pytest.mark.file_extension("vcf"),
                 pytest.mark.file_extension("vcf.gz")
             ]
 

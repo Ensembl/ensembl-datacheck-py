@@ -17,16 +17,23 @@
 vcf.py
 
 This module performs generic vcf checks.
+
+The checks are marked at function level for the variation dataset types, so the
+marks travel with the functions when they are re-exported (e.g. by
+variation/vcf.py) and the checks run for both short and structural variants.
 """
 
 from pathlib import Path
 
+import pytest
 from pysam import HTSFile, TabixFile, VariantFile
 
 from ensembl.datacheck.functions.file_checks import file_exists
 from ensembl.datacheck.functions.vcf_utils import is_bgzf_compressed_file, is_vcf_file, vcf_reader
 
 
+@pytest.mark.dataset_type('short_variants')
+@pytest.mark.dataset_type('structural_variants')
 def check_exist(target_file: Path | None, source_file: Path | None):
     """
     Check that the target file exists on disk.
@@ -42,6 +49,8 @@ def check_exist(target_file: Path | None, source_file: Path | None):
     if source_file is not None:
         assert file_exists(source_file), "The source VCF file does not exist."
 
+@pytest.mark.dataset_type('short_variants')
+@pytest.mark.dataset_type('structural_variants')
 def check_has_vcf_gz_extension(target_file: Path | None, source_file: Path | None):
     """
     Check that the file(s) provided have the .vcf.gz extension.
@@ -61,6 +70,8 @@ def check_has_vcf_gz_extension(target_file: Path | None, source_file: Path | Non
 
         assert file_path.suffixes[-2:] == ['.vcf', '.gz'], f"File does not have .vcf.gz extension: {file_path}"
 
+@pytest.mark.dataset_type('short_variants')
+@pytest.mark.dataset_type('structural_variants')
 def check_is_bgzf_vcf_file(target_file: Path | None, source_file: Path | None):
     """
     Check that the file(s) provided is/are valid bgzipped vcf file(s).
@@ -96,6 +107,8 @@ def check_is_bgzf_vcf_file(target_file: Path | None, source_file: Path | None):
             ) from ex
 
 
+@pytest.mark.dataset_type('short_variants')
+@pytest.mark.dataset_type('structural_variants')
 def check_has_valid_index_file(target_file: Path, source_file: Path | None):
     """
     Check that an accompanying index file can be found and read appropriately.
@@ -139,6 +152,8 @@ def check_has_valid_index_file(target_file: Path, source_file: Path | None):
             ) from ex
 
 
+@pytest.mark.dataset_type('short_variants')
+@pytest.mark.dataset_type('structural_variants')
 def check_header(target_file: Path, source_file: Path | None):
     """
     Check that the VCF header has all fields required for bcftools processing.
