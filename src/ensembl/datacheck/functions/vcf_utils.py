@@ -27,10 +27,13 @@ from typing import Any
 import warnings
 
 from cyvcf2 import VCF
-from pysam import HTSFile
+from pysam import HTSFile, TabixFile
 
 from ensembl.datacheck.functions.file_checks import file_exists
 from ensembl.datacheck.functions.utils import EnsemblDatacheckWarning
+
+# Upper bound for a random sampling start on contigs without a length in the header
+DEFAULT_MAX_SAMPLE_START = 100000000
 
 
 def is_vcf_file(hts_file: HTSFile) -> bool:
@@ -81,6 +84,32 @@ def find_vcf_index(vcf_file: Path | str) -> Path | None:
         return None
 
     return Path(index_file)
+
+
+def get_indexed_contigs(vcf_file: Path | str) -> list[str]:
+    """
+    Get the contigs that have records, according to the VCF index.
+
+    Unlike the ##contig header lines (cyvcf2's seqnames), the index only lists
+    contigs that have at least one record.
+
+    Args:
+        vcf_file: Path to the bgzipped, indexed VCF file.
+
+    Returns:
+        list[str]: Contig names present in the index.
+
+    Raises:
+        AssertionError: If no .csi or .tbi index is found.
+    """
+    index_file = find_vcf_index(vcf_file)
+    assert index_file is not None, f"No .csi or .tbi index found for {vcf_file}."
+
+    tabix_file = TabixFile(str(vcf_file), index=str(index_file))
+    try:
+        return list(tabix_file.contigs)
+    finally:
+        tabix_file.close()
 
 
 def vcf_reader(vcf_file_path: str | Path) -> VCF:
@@ -232,7 +261,9 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
     Build a sampled variant dictionary from a VCF file.
 
     When no_variants is set, the logic mirrors the old datacheck fixture:
-    - sample by random chromosome + random start region hops
+    - sample by random chromosome + random start region hops; chromosomes are
+      taken from the index (so only contigs with records are picked), weighted by
+      length, and the start is drawn within the contig length from the header
     - stop after collecting no_variants samples, or when region hops reach
       max_random_regions (default 1000; alias no_rvariants)
     - for each sampled region, include at most 11 variants
@@ -262,9 +293,6 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
 
         reader = vcf_reader(vcf_file)
 
-        chroms = reader.seqnames
-        assert chroms, "Source VCF has no sequence names in the header."
-
         variant_list = {}
 
         if no_variants is None:
@@ -272,12 +300,26 @@ def subsample_variants_from_file(vcf_file: Path | str, params: dict, no_variants
                 variant_list[variant.ID] = _variant_to_dict(variant, csq_fields)
             return variant_list
 
+        chroms = get_indexed_contigs(vcf_file)
+        assert chroms, "VCF index has no contigs with records."
+
+        # contig lengths from the header; fall back for contigs without a length
+        try:
+            header_lengths = dict(zip(reader.seqnames, reader.seqlens))
+        except AttributeError:  # cyvcf2 raises when the header has no contig lengths
+            header_lengths = {}
+        chrom_lengths = [
+            length if (length := header_lengths.get(chrom)) and length > 0 else DEFAULT_MAX_SAMPLE_START
+            for chrom in chroms
+        ]
+
         total_no_variants = 0
         iteration = 0
 
         while total_no_variants < no_variants:
-            chrom = random.choice(chroms)
-            start = random.choice(range(1000, 100000000))
+            chrom_idx = random.choices(range(len(chroms)), weights=chrom_lengths)[0]
+            chrom = chroms[chrom_idx]
+            start = random.randint(1, chrom_lengths[chrom_idx])
 
             no_variants_in_region = 0
             for variant in reader(f"{chrom}:{start}"):
