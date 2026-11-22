@@ -20,7 +20,8 @@ This module performs checks specific to structural variant VCF files.
 
 Checks performed:
 1. check_id_is_not_graph_node: Identifiers do not contain graph nodes.
-2. check_symbolic_alts_well_formed: Symbolic ALTs are well formed, including <CN=n>.
+2. check_symbolic_alts_well_formed: Symbolic ALTs are well formed, including <CN=n> and <CNV>;
+   breakend ALTs are skipped.
 3. check_non_symbolic_min_size: Non-symbolic records are at least 50 bp.
 
 The checks run on the target_variants_subsample fixture, so --subsample-size
@@ -40,7 +41,23 @@ pytestmark = [
 MIN_SV_SIZE = 50
 MAX_REPORTED_FAILURES = 10
 SYMBOLIC_ALT = re.compile(r"^<[^<>\s,]+>$")
-COPY_NUMBER_ALT = re.compile(r"^<CN=?\d+>$")
+# Allowed <CN...> alleles: numbered copy number <CNn> / <CN=n>, or <CNV> with
+# optional colon-delimited subtypes, e.g. <CNV:TR>
+COPY_NUMBER_ALT = re.compile(
+    r"<CN(?:"
+    r"=?\d+"                    # <CN2>, <CN=2>
+    r"|V(?::[^<>\s,:]+)*"       # <CNV>, <CNV:TR>
+    r")>"
+)
+# Breakend ALTs (VCF 4.x section 5.4): t[p[, t]p], ]p]t, [p[t and single breakends .t / t.
+# p is chrom:pos; chrom may itself be an assembly contig in angle brackets, e.g. C[<ctg1>:7[
+BREAKEND_ALT = re.compile(
+    r"[ACGTNacgtn]+\[[^\[\]]+:\d+\["      # t[p[
+    r"|[ACGTNacgtn]+\][^\[\]]+:\d+\]"     # t]p]
+    r"|\][^\[\]]+:\d+\][ACGTNacgtn]+"     # ]p]t
+    r"|\[[^\[\]]+:\d+\[[ACGTNacgtn]+"     # [p[t
+    r"|\.[ACGTNacgtn]+|[ACGTNacgtn]+\."   # .t / t.
+)
 NON_SYMBOLIC_ALT = re.compile(r"^[ACGTNacgtn]+$")
 GRAPH_NODE_ID = re.compile(r"(?:[<>]\d+)+")
 
@@ -83,8 +100,12 @@ def check_symbolic_alts_well_formed(target_variants_subsample: dict[str, dict[st
     """
     Check that symbolic ALT alleles are well formed.
 
-    Symbolic alleles must look like <TYPE>, and copy number alleles must be
-    <CN=n> (or <CNn>) with n a non-negative integer.
+    Symbolic alleles must look like <TYPE>. Alleles starting with <CN must be
+    either <CNV> (optionally with colon-delimited subtypes, e.g. <CNV:TR>) or a
+    numbered copy number <CN=n> (or <CNn>) with n a non-negative integer.
+
+    Breakend ALTs (e.g. N]2:200], [2:200[N, N.) are skipped; their syntax is
+    only recognised, not validated further.
 
     Args:
         target_variants_subsample: Variants sampled from the structural variant VCF, keyed by ID.
@@ -95,11 +116,11 @@ def check_symbolic_alts_well_formed(target_variants_subsample: dict[str, dict[st
     failures = []
     for variant_id, variant in target_variants_subsample.items():
         for alt in variant["alts"]:
-            if NON_SYMBOLIC_ALT.match(alt) or alt in ("*", "."):
+            if NON_SYMBOLIC_ALT.match(alt) or alt in ("*", ".") or BREAKEND_ALT.fullmatch(alt):
                 continue
             if not SYMBOLIC_ALT.match(alt):
                 failures.append(f"{_variant_label(variant_id, variant)} ({alt})")
-            elif alt.startswith("<CN") and not COPY_NUMBER_ALT.match(alt):
+            elif alt.startswith("<CN") and not COPY_NUMBER_ALT.fullmatch(alt):
                 failures.append(f"{_variant_label(variant_id, variant)} ({alt})")
 
     _assert_no_failures(
