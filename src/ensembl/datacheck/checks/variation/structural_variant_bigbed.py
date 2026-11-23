@@ -210,5 +210,4 @@ def check_variant_group_greater_than_10(target_entries_subsample):
         if group <= 10:
             failures.append(f"{named['id']} ({chrom}:{start}) group={group}")
 
-    # Skip for now - fix needed for [NW-220]
-    # _assert_no_failures(failures, f"{len(failures)} entries have a group of 10 or less.")
+    _assert_no_failures(failures, f"{len(failures)} entries have a group of 10 or less.")
