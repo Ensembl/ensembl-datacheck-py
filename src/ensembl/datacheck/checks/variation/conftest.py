@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from ensembl.datacheck.checks.variation.types import Csq_subfield_spec
+from ensembl.datacheck.checks.variation.type_defs import Csq_subfield_spec
 from ensembl.datacheck.functions.vcf_utils import subsample_variants_from_file
 
 # Constants
@@ -48,80 +48,86 @@ def CSQ_SPECS() -> dict[str, Csq_subfield_spec]:
         "Feature": {"species": "all"},
         "VARIANT_CLASS": {"canbe_empty": False, "species": "all"},
         "SPDI": {"canbe_empty": False, "species": "all"},
-        "PUBMED": {"species": "all"},
-        "VAR_SYNONYMS": {"species": "all"},
-        "Conservation": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_afr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_afr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_afr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_amr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_amr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_amr": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_asj": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_asj": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_asj": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_eas": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_eas": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_eas": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_fin": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_fin": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_fin": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_nfe": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_nfe": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_nfe": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_remaining": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_remaining": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_remaining": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AF_sas": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AC_sas": {"species": "homo_sapiens"},
-        "gnomAD_exomes_AN_sas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_afr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_afr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_afr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_amr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_amr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_amr": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_asj": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_asj": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_asj": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_eas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_eas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_eas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_fin": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_fin": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_fin": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_nfe": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_nfe": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_nfe": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_remaining": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_remaining": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_remaining": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AF_sas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AC_sas": {"species": "homo_sapiens"},
-        "gnomAD_genomes_AN_sas": {"species": "homo_sapiens"},
-        "AF": {"species": "homo_sapiens"},
-        "AFR_AF": {"species": "homo_sapiens"},
-        "AMR_AF": {"species": "homo_sapiens"},
-        "EAS_AF": {"species": "homo_sapiens"},
-        "EUR_AF": {"species": "homo_sapiens"},
-        "SAS_AF": {"species": "homo_sapiens"},
+        "PUBMED": {"species": "all", "dataset_type": "short_variants"},
+        "VAR_SYNONYMS": {"species": "all", "dataset_type": "short_variants"},
+        "Conservation": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AF_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AC_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_exomes_AN_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_afr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_amr": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_asj": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_eas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_fin": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_nfe": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_remaining": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AF_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AC_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "gnomAD_genomes_AN_sas": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "AFR_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "AMR_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "EAS_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "EUR_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
+        "SAS_AF": {"species": "homo_sapiens", "dataset_type": "short_variants"},
     }
 
 
 @pytest.fixture(scope="session")
-def csq_specs_species_filtered(CSQ_SPECS: dict[str, Csq_subfield_spec], params: dict[str, str]) -> dict[str, Csq_subfield_spec]:
+def csq_specs_species_filtered(
+    CSQ_SPECS: dict[str, Csq_subfield_spec], params: dict[str, str], request: pytest.FixtureRequest
+) -> dict[str, Csq_subfield_spec]:
     """
-    CSQ subfield specs filtered to be relevant for the input species.
+    CSQ subfield specs filtered to be relevant for the input species and dataset type.
+
+    Specs are only filtered on dataset type when --dataset-type is given; specs without
+    a dataset_type are treated as relevant for all dataset types.
 
     Args:
         CSQ_SPECS (dict[str, Csq_subfield_spec]): unfiltered CSQ subfield specs.
         params (dict[str, str]): Parsed command-line parameters.
+        request (pytest.FixtureRequest): Fixture request, used to read --dataset-type.
 
     Returns:
         dict[str, Csq_subfield_spec]: Filtered CSQ subfield specs.
@@ -134,11 +140,19 @@ def csq_specs_species_filtered(CSQ_SPECS: dict[str, Csq_subfield_spec], params: 
     if param_species is None:
         raise ValueError("species param must be defined for CSQ checks.")
 
+    param_dataset_type = request.config.getoption("dataset_type")
+
     filtered_specs = {}
     for field, spec in CSQ_SPECS.items():
         spec_species = spec.get('species', None)
-        if spec_species == 'all' or param_species.startswith(spec_species):
-            filtered_specs[field] = spec
+        if not (spec_species == 'all' or param_species.startswith(spec_species)):
+            continue
+
+        spec_dataset_type = spec.get('dataset_type', 'all')
+        if param_dataset_type and spec_dataset_type not in ('all', param_dataset_type):
+            continue
+
+        filtered_specs[field] = spec
     return filtered_specs
 
 
@@ -159,13 +173,16 @@ def variation_params(params: dict[str, str]) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def source_variants_subsample(source_file: Path | None, params: dict[str, str]) -> dict[str, dict[str, Any]]:
+def source_variants_subsample(
+    source_file: Path | None, params: dict[str, str], subsample_size: int | None
+) -> dict[str, dict[str, Any]]:
     """
     Subsample variants from the source file.
 
     Args:
         source_file: Path to the source VCF file.
         params: the CLI input parameters.
+        subsample_size: Number of variants to sample, or None (--subsample-size=0) to read all.
 
     Returns:
         dict: Subsampled variants.
@@ -176,16 +193,19 @@ def source_variants_subsample(source_file: Path | None, params: dict[str, str]) 
     if source_file is None:
         raise ValueError("source_file param must be defined for source subsampling.")
 
-    return subsample_variants_from_file(source_file, params)
+    return subsample_variants_from_file(source_file, params, no_variants=subsample_size)
 
 @pytest.fixture(scope="session")
-def target_variants_subsample(target_file: Path | None, params: dict[str, str]) -> dict[str, dict[str, Any]]:
+def target_variants_subsample(
+    target_file: Path | None, params: dict[str, str], subsample_size: int | None
+) -> dict[str, dict[str, Any]]:
     """
     Subsample variants from the target file.
 
     Args:
         target_file: Path to the target VCF file.
         params: the CLI input parameters.
+        subsample_size: Number of variants to sample, or None (--subsample-size=0) to read all.
 
     Returns:
         dict: Subsampled variants.
@@ -196,4 +216,4 @@ def target_variants_subsample(target_file: Path | None, params: dict[str, str]) 
     if target_file is None:
         raise ValueError("target_file param must be defined for taret subsampling.")
 
-    return subsample_variants_from_file(target_file, params)
+    return subsample_variants_from_file(target_file, params, no_variants=subsample_size)
