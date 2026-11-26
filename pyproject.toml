@@ -48,6 +48,9 @@ dependencies = [
 automation = [
     "pymongo==4.16.0"
 ]
+compara = [
+    "pysam==0.24.1"
+]
 
 [project.urls]
 Repository = "https://github.com/Ensembl/ensembl-datacheck-py"
